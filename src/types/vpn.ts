@@ -15,6 +15,7 @@ export interface ServerConfig {
   endpoint: string;
   publicKey: string;
   allowedIps: string;
+  address?: string;
   dns?: string;
   isFavorite?: boolean;
   lastUsed?: string | null;

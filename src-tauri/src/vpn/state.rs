@@ -160,14 +160,16 @@ impl VpnManager {
         };
 
         // 7. Assemble WireGuard config
+        let preshared_key = self.db.get_server_preshared_key(server_id).unwrap_or(None);
+        let address = server.address.clone().unwrap_or_else(|| "10.14.0.2/32".into());
         let wg_config = WireGuardConfig {
             client_private_key: private_key,
-            address: "10.14.0.2/32".to_string(),
+            address,
             dns: server.dns.clone(),
             peer_public_key: server.public_key.clone(),
             endpoint: server.endpoint.clone(),
             allowed_ips: server.allowed_ips.clone(),
-            preshared_key: None,
+            preshared_key,
         };
 
         let tunnel_name = "PrivateVPNTunnel";

@@ -41,6 +41,7 @@ pub async fn import_vpn_configuration(
         endpoint: parsed.endpoint.clone(),
         public_key: parsed.peer_public_key.clone(),
         allowed_ips: parsed.allowed_ips.clone(),
+        address: Some(parsed.address.clone()),
         dns: parsed.dns.clone(),
         is_favorite: false,
         last_used: None,
@@ -50,7 +51,11 @@ pub async fn import_vpn_configuration(
 
     manager
         .db
-        .save_server(&server, Some(&parsed.client_private_key))
+        .save_server(
+            &server,
+            Some(&parsed.client_private_key),
+            parsed.preshared_key.as_deref(),
+        )
         .map_err(|e| e.to_string())?;
 
     manager.add_log("info", &format!("Imported new server configuration: {}", server.name));

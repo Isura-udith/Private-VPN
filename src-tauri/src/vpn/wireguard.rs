@@ -97,7 +97,11 @@ impl WireGuardIntegration {
             ));
         }
 
-        // Ensure tunnels directory exists in LocalAppData
+        // 1. Clean up any lingering previous tunnel service with the same name first
+        let _ = self.disconnect_tunnel(tunnel_name);
+        std::thread::sleep(std::time::Duration::from_millis(300));
+
+        // 2. Ensure tunnels directory exists in LocalAppData
         let mut tunnel_dir = dirs_fallback_local_data();
         tunnel_dir.push("PrivateVPN");
         tunnel_dir.push("tunnels");
@@ -111,7 +115,7 @@ impl WireGuardIntegration {
             AppError::SystemError(format!("Failed to write tunnel configuration file: {}", e))
         })?;
 
-        // Run WireGuard install tunnel service
+        // 3. Run WireGuard install tunnel service
         #[cfg(windows)]
         {
             let mut cmd = Command::new(exe);
@@ -202,6 +206,67 @@ impl WireGuardIntegration {
             let _ = tunnel_name;
             false
         }
+    }
+
+    /// Queries live transfer statistics (rx_bytes, tx_bytes) from WireGuard or network adapter
+    pub fn query_tunnel_traffic(&self, tunnel_name: &str) -> Option<(u64, u64)> {
+        // Try wg.exe show <tunnel_name> transfer
+        let mut wg_candidates = vec![
+            PathBuf::from(r"C:\Program Files\WireGuard\wg.exe"),
+            PathBuf::from(r"C:\Program Files (x86)\WireGuard\wg.exe"),
+        ];
+        if let Some(ref p) = self.executable_path {
+            if let Some(parent) = p.parent() {
+                wg_candidates.push(parent.join("wg.exe"));
+            }
+        }
+
+        #[cfg(windows)]
+        {
+            for wg_path in wg_candidates {
+                if wg_path.exists() {
+                    let mut cmd = Command::new(&wg_path);
+                    cmd.args(["show", tunnel_name, "transfer"]);
+                    cmd.creation_flags(CREATE_NO_WINDOW);
+                    if let Ok(output) = cmd.output() {
+                        if output.status.success() {
+                            let stdout = String::from_utf8_lossy(&output.stdout);
+                            for line in stdout.lines() {
+                                let parts: Vec<&str> = line.split_whitespace().collect();
+                                if parts.len() >= 3 {
+                                    if let (Ok(rx), Ok(tx)) = (parts[1].parse::<u64>(), parts[2].parse::<u64>()) {
+                                        return Some((rx, tx));
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Fallback: netsh interface ipv4 show subinterfaces "<tunnel_name>"
+            let mut cmd = Command::new("netsh");
+            cmd.args(["interface", "ipv4", "show", "subinterfaces", tunnel_name]);
+            cmd.creation_flags(CREATE_NO_WINDOW);
+            if let Ok(output) = cmd.output() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                for line in stdout.lines() {
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    if parts.len() >= 5 {
+                        if let (Ok(bytes_in), Ok(bytes_out)) = (parts[2].parse::<u64>(), parts[3].parse::<u64>()) {
+                            return Some((bytes_in, bytes_out));
+                        }
+                    }
+                }
+            }
+        }
+
+        #[cfg(not(windows))]
+        {
+            let _ = tunnel_name;
+        }
+
+        None
     }
 }
 

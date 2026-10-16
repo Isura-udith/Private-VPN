@@ -17,6 +17,7 @@ fn test_database_server_crud_and_encryption() {
         endpoint: "198.51.100.10:51820".into(),
         public_key: "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=".into(),
         allowed_ips: "0.0.0.0/0, ::/0".into(),
+        address: Some("10.14.0.2/32".into()),
         dns: Some("1.1.1.1".into()),
         is_favorite: false,
         last_used: None,
@@ -25,9 +26,10 @@ fn test_database_server_crud_and_encryption() {
     };
 
     let client_private_key = "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=";
+    let psk = "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC=";
 
-    // Save server with client private key encrypted via DPAPI
-    db.save_server(&server, Some(client_private_key))
+    // Save server with client private key and PSK encrypted via DPAPI
+    db.save_server(&server, Some(client_private_key), Some(psk))
         .expect("should save server successfully");
 
     // Fetch server record
@@ -35,6 +37,7 @@ fn test_database_server_crud_and_encryption() {
     assert_eq!(retrieved.name, "Zurich Secure Node");
     assert_eq!(retrieved.country, "Switzerland");
     assert_eq!(retrieved.endpoint, "198.51.100.10:51820");
+    assert_eq!(retrieved.address, Some("10.14.0.2/32".into()));
 
     // Fetch and verify private key decryption
     let decrypted_key = db
@@ -42,6 +45,12 @@ fn test_database_server_crud_and_encryption() {
         .expect("should retrieve private key")
         .expect("private key should exist");
     assert_eq!(decrypted_key, client_private_key);
+
+    let decrypted_psk = db
+        .get_server_preshared_key("srv-test-1")
+        .expect("should retrieve PSK")
+        .expect("PSK should exist");
+    assert_eq!(decrypted_psk, psk);
 
     // Toggle favorite
     let is_fav = db.toggle_favorite("srv-test-1").expect("toggle favorite");

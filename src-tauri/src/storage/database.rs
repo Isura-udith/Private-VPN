@@ -16,6 +16,7 @@ pub struct ServerRecord {
     pub endpoint: String,
     pub public_key: String,
     pub allowed_ips: String,
+    pub address: Option<String>,
     pub dns: Option<String>,
     pub is_favorite: bool,
     pub last_used: Option<String>,
@@ -131,8 +132,10 @@ impl Database {
                 endpoint TEXT NOT NULL,
                 public_key TEXT NOT NULL,
                 allowed_ips TEXT NOT NULL,
+                address TEXT,
                 dns TEXT,
                 encrypted_private_key BLOB,
+                encrypted_preshared_key BLOB,
                 is_favorite INTEGER NOT NULL DEFAULT 0,
                 last_used TEXT,
                 is_custom INTEGER NOT NULL DEFAULT 0,
@@ -154,6 +157,10 @@ impl Database {
             ",
         )
         .map_err(|e| AppError::DatabaseError(format!("Database schema initialization error: {}", e)))?;
+
+        // Backward compatibility migrations for existing SQLite files
+        let _ = conn.execute("ALTER TABLE saved_servers ADD COLUMN address TEXT", []);
+        let _ = conn.execute("ALTER TABLE saved_servers ADD COLUMN encrypted_preshared_key BLOB", []);
 
         // Initialize default settings if row 1 doesn't exist
         let count: i64 = conn
@@ -238,7 +245,7 @@ impl Database {
         let mut stmt = conn
             .prepare(
                 "SELECT id, name, country, city, country_code, endpoint, public_key,
-                        allowed_ips, dns, is_favorite, last_used, is_custom, provider
+                        allowed_ips, address, dns, is_favorite, last_used, is_custom, provider
                  FROM saved_servers ORDER BY is_favorite DESC, name ASC",
             )
             .map_err(|e| AppError::DatabaseError(format!("Failed to prepare server query: {}", e)))?;
@@ -254,11 +261,12 @@ impl Database {
                     endpoint: r.get(5)?,
                     public_key: r.get(6)?,
                     allowed_ips: r.get(7)?,
-                    dns: r.get(8)?,
-                    is_favorite: r.get::<_, i32>(9)? != 0,
-                    last_used: r.get(10)?,
-                    is_custom: r.get::<_, i32>(11)? != 0,
-                    provider: r.get(12)?,
+                    address: r.get(8)?,
+                    dns: r.get(9)?,
+                    is_favorite: r.get::<_, i32>(10)? != 0,
+                    last_used: r.get(11)?,
+                    is_custom: r.get::<_, i32>(12)? != 0,
+                    provider: r.get(13)?,
                 })
             })
             .map_err(|e| AppError::DatabaseError(format!("Failed to query servers: {}", e)))?;
@@ -276,7 +284,7 @@ impl Database {
         let conn = self.conn.lock().unwrap();
         conn.query_row(
             "SELECT id, name, country, city, country_code, endpoint, public_key,
-                    allowed_ips, dns, is_favorite, last_used, is_custom, provider
+                    allowed_ips, address, dns, is_favorite, last_used, is_custom, provider
              FROM saved_servers WHERE id = ?1",
             [server_id],
             |r| {
@@ -289,11 +297,12 @@ impl Database {
                     endpoint: r.get(5)?,
                     public_key: r.get(6)?,
                     allowed_ips: r.get(7)?,
-                    dns: r.get(8)?,
-                    is_favorite: r.get::<_, i32>(9)? != 0,
-                    last_used: r.get(10)?,
-                    is_custom: r.get::<_, i32>(11)? != 0,
-                    provider: r.get(12)?,
+                    address: r.get(8)?,
+                    dns: r.get(9)?,
+                    is_favorite: r.get::<_, i32>(10)? != 0,
+                    last_used: r.get(11)?,
+                    is_custom: r.get::<_, i32>(12)? != 0,
+                    provider: r.get(13)?,
                 })
             },
         )
@@ -318,12 +327,36 @@ impl Database {
         }
     }
 
+    pub fn get_server_preshared_key(&self, server_id: &str) -> AppResult<Option<String>> {
+        let conn = self.conn.lock().unwrap();
+        let encrypted_blob: Option<Vec<u8>> = conn
+            .query_row(
+                "SELECT encrypted_preshared_key FROM saved_servers WHERE id = ?1",
+                [server_id],
+                |r| r.get(0),
+            )
+            .unwrap_or(None);
+
+        if let Some(blob) = encrypted_blob {
+            let key = unprotect_secret(&blob)?;
+            Ok(Some(key))
+        } else {
+            Ok(None)
+        }
+    }
+
     pub fn save_server(
         &self,
         server: &ServerRecord,
         plaintext_private_key: Option<&str>,
+        plaintext_preshared_key: Option<&str>,
     ) -> AppResult<()> {
         let encrypted_key = match plaintext_private_key {
+            Some(key) => Some(protect_secret(key)?),
+            None => None,
+        };
+
+        let encrypted_psk = match plaintext_preshared_key {
             Some(key) => Some(protect_secret(key)?),
             None => None,
         };
@@ -334,8 +367,8 @@ impl Database {
         conn.execute(
             "INSERT INTO saved_servers
                 (id, name, country, city, country_code, endpoint, public_key, allowed_ips,
-                 dns, encrypted_private_key, is_favorite, last_used, is_custom, provider, created_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15)
+                 address, dns, encrypted_private_key, encrypted_preshared_key, is_favorite, last_used, is_custom, provider, created_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)
              ON CONFLICT(id) DO UPDATE SET
                 name = excluded.name,
                 country = excluded.country,
@@ -344,8 +377,10 @@ impl Database {
                 endpoint = excluded.endpoint,
                 public_key = excluded.public_key,
                 allowed_ips = excluded.allowed_ips,
+                address = excluded.address,
                 dns = excluded.dns,
                 encrypted_private_key = COALESCE(excluded.encrypted_private_key, saved_servers.encrypted_private_key),
+                encrypted_preshared_key = COALESCE(excluded.encrypted_preshared_key, saved_servers.encrypted_preshared_key),
                 is_custom = excluded.is_custom,
                 provider = excluded.provider",
             params![
@@ -357,8 +392,10 @@ impl Database {
                 server.endpoint,
                 server.public_key,
                 server.allowed_ips,
+                server.address,
                 server.dns,
                 encrypted_key,
+                encrypted_psk,
                 if server.is_favorite { 1 } else { 0 },
                 server.last_used,
                 if server.is_custom { 1 } else { 0 },

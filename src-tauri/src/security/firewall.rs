@@ -7,6 +7,8 @@ const RULE_PREFIX: &str = "PrivateVPN-KillSwitch";
 const BLOCK_ALL_RULE: &str = "PrivateVPN-KillSwitch-BlockAll";
 const ALLOW_LOCAL_RULE: &str = "PrivateVPN-KillSwitch-AllowLocal";
 const ALLOW_ENDPOINT_RULE: &str = "PrivateVPN-KillSwitch-AllowEndpoint";
+const ALLOW_DNS_RULE: &str = "PrivateVPN-KillSwitch-AllowDNS";
+const ALLOW_DNS_TCP_RULE: &str = "PrivateVPN-KillSwitch-AllowDNSTCP";
 const BLOCK_IPV6_RULE: &str = "PrivateVPN-KillSwitch-BlockIPv6";
 
 #[cfg(windows)]
@@ -38,6 +40,21 @@ fn run_netsh(args: &[&str]) -> AppResult<String> {
     Ok(stdout)
 }
 
+/// Resolves a hostname or IP to a valid IP string for Windows Firewall
+fn resolve_endpoint_ip(host_or_ip: &str, port: u16) -> Option<String> {
+    use std::net::ToSocketAddrs;
+    if host_or_ip.parse::<std::net::IpAddr>().is_ok() {
+        return Some(host_or_ip.to_string());
+    }
+    let addr_str = format!("{}:{}", host_or_ip, port);
+    if let Ok(mut addrs) = addr_str.to_socket_addrs() {
+        if let Some(addr) = addrs.next() {
+            return Some(addr.ip().to_string());
+        }
+    }
+    None
+}
+
 /// Checks if the killswitch block rule is currently active in Windows Firewall
 pub fn is_kill_switch_active() -> bool {
     #[cfg(windows)]
@@ -59,7 +76,7 @@ pub fn is_kill_switch_active() -> bool {
 }
 
 /// Enables the Windows Firewall Kill Switch
-/// Blocks all outbound traffic except local network and authorized VPN endpoint traffic
+/// Blocks all outbound traffic except local network, DNS port 53, and authorized VPN endpoint traffic
 pub fn enable_kill_switch(remote_endpoint_ip: Option<&str>, remote_port: Option<u16>) -> AppResult<()> {
     #[cfg(windows)]
     {
@@ -79,24 +96,69 @@ pub fn enable_kill_switch(remote_endpoint_ip: Option<&str>, remote_port: Option<
             "enable=yes",
         ])?;
 
-        // 3. Allow outbound handshake traffic to the specific VPN server endpoint
-        if let (Some(ip), Some(port)) = (remote_endpoint_ip, remote_port) {
-            run_netsh(&[
-                "advfirewall",
-                "firewall",
-                "add",
-                "rule",
-                &format!("name={}", ALLOW_ENDPOINT_RULE),
-                "dir=out",
-                "action=allow",
-                "protocol=UDP",
-                &format!("remoteport={}", port),
-                &format!("remoteip={}", ip),
-                "enable=yes",
-            ])?;
+        // 3. Allow DNS resolution (port 53 UDP & TCP) so domain names and verification endpoints resolve
+        run_netsh(&[
+            "advfirewall",
+            "firewall",
+            "add",
+            "rule",
+            &format!("name={}", ALLOW_DNS_RULE),
+            "dir=out",
+            "action=allow",
+            "protocol=UDP",
+            "remoteport=53",
+            "enable=yes",
+        ])?;
+
+        run_netsh(&[
+            "advfirewall",
+            "firewall",
+            "add",
+            "rule",
+            &format!("name={}", ALLOW_DNS_TCP_RULE),
+            "dir=out",
+            "action=allow",
+            "protocol=TCP",
+            "remoteport=53",
+            "enable=yes",
+        ])?;
+
+        // 4. Allow outbound handshake traffic to the specific VPN server endpoint
+        if let Some(port) = remote_port {
+            let port_str = port.to_string();
+            let resolved = remote_endpoint_ip.and_then(|h| resolve_endpoint_ip(h, port));
+
+            if let Some(ref ip) = resolved {
+                run_netsh(&[
+                    "advfirewall",
+                    "firewall",
+                    "add",
+                    "rule",
+                    &format!("name={}", ALLOW_ENDPOINT_RULE),
+                    "dir=out",
+                    "action=allow",
+                    "protocol=UDP",
+                    &format!("remoteport={}", port_str),
+                    &format!("remoteip={}", ip),
+                    "enable=yes",
+                ])?;
+            } else {
+                run_netsh(&[
+                    "advfirewall",
+                    "firewall",
+                    "add",
+                    "rule",
+                    &format!("name={}", ALLOW_ENDPOINT_RULE),
+                    "dir=out",
+                    "action=allow",
+                    "protocol=UDP",
+                    &format!("remoteport={}", port_str),
+                    "enable=yes",
+                ])?;
+            }
         }
 
-        // 4. Block general outbound internet traffic
+        // 5. Block general outbound internet traffic
         run_netsh(&[
             "advfirewall",
             "firewall",
@@ -137,6 +199,23 @@ pub fn disable_kill_switch() -> AppResult<()> {
             "delete",
             "rule",
             &format!("name={}", ALLOW_LOCAL_RULE),
+        ]);
+
+        // Delete DNS rules
+        let _ = run_netsh(&[
+            "advfirewall",
+            "firewall",
+            "delete",
+            "rule",
+            &format!("name={}", ALLOW_DNS_RULE),
+        ]);
+
+        let _ = run_netsh(&[
+            "advfirewall",
+            "firewall",
+            "delete",
+            "rule",
+            &format!("name={}", ALLOW_DNS_TCP_RULE),
         ]);
 
         // Delete endpoint rule

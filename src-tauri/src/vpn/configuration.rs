@@ -33,7 +33,14 @@ impl WireGuardConfig {
 
             if let Some((key, val)) = trimmed.split_once('=') {
                 let k = key.trim().to_ascii_lowercase();
-                let v = val.trim().to_string();
+                let clean_val = if let Some(idx) = val.find('#') {
+                    &val[..idx]
+                } else if let Some(idx) = val.find(';') {
+                    &val[..idx]
+                } else {
+                    val
+                };
+                let v = clean_val.trim().to_string();
 
                 match current_section.as_str() {
                     "interface" => {
