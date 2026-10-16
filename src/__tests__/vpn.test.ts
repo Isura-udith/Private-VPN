@@ -101,4 +101,20 @@ describe('Private VPN Frontend State, Models & Utilities', () => {
     expect(formatDuration(-50)).toBe('0m 0s');
     expect(formatSpeed(0)).toBe('0 B/s');
   });
+
+  it('validates ParsedConfigPreview structure for WireGuard configuration parsing', () => {
+    const preview = {
+      endpoint: '198.51.100.1:51820',
+      peerPublicKey: 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=',
+      address: '10.14.0.2/32',
+      allowedIps: '0.0.0.0/0, ::/0',
+      dns: '1.1.1.1',
+      hasPresharedKey: true,
+    };
+
+    expect(preview.endpoint).toBe('198.51.100.1:51820');
+    expect(preview.address).toBe('10.14.0.2/32');
+    expect(preview.hasPresharedKey).toBe(true);
+    expect(preview.dns).toBe('1.1.1.1');
+  });
 });

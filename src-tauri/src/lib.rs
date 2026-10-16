@@ -10,7 +10,8 @@ use commands::connection::{
 };
 use commands::diagnostics::run_diagnostics;
 use commands::servers::{
-    delete_server, import_vpn_configuration, list_servers, toggle_favorite_server,
+    delete_server, export_server_configuration, import_vpn_configuration, list_servers,
+    parse_vpn_configuration, toggle_favorite_server,
 };
 use commands::settings::{get_security_status, get_settings, toggle_kill_switch, update_settings};
 use commands::statistics::{clear_session_history, get_session_history, get_statistics};
@@ -62,6 +63,8 @@ pub fn run() {
             get_settings,
             update_settings,
             import_vpn_configuration,
+            parse_vpn_configuration,
+            export_server_configuration,
             delete_server,
             get_session_history,
             clear_session_history

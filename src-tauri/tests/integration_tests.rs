@@ -171,3 +171,64 @@ fn test_default_servers_seeded_on_init() {
     assert!(servers.iter().any(|s| s.country == "Germany"));
     assert!(servers.iter().any(|s| s.country == "Switzerland"));
 }
+
+#[test]
+fn test_parse_and_export_server_configuration() {
+    let conf_data = r#"
+[Interface]
+PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+Address = 10.14.0.5/32
+DNS = 9.9.9.9
+
+[Peer]
+PublicKey = BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB=
+Endpoint = 198.51.100.88:51820
+AllowedIPs = 0.0.0.0/0
+"#;
+
+    let parsed = WireGuardConfig::parse(conf_data).expect("Must parse valid config");
+    assert_eq!(parsed.address, "10.14.0.5/32");
+    assert_eq!(parsed.endpoint, "198.51.100.88:51820");
+
+    let db = Database::new_in_memory().expect("in-memory db");
+    let server = ServerRecord {
+        id: "srv-export-test".into(),
+        name: "Test Export Node".into(),
+        country: "Japan".into(),
+        city: "Tokyo".into(),
+        country_code: "JP".into(),
+        endpoint: parsed.endpoint.clone(),
+        public_key: parsed.peer_public_key.clone(),
+        allowed_ips: parsed.allowed_ips.clone(),
+        address: Some(parsed.address.clone()),
+        dns: parsed.dns.clone(),
+        is_favorite: false,
+        last_used: None,
+        is_custom: true,
+        provider: Some("Test".into()),
+    };
+
+    db.save_server(&server, Some(&parsed.client_private_key), None)
+        .expect("Saved server");
+
+    let retrieved_key = db.get_server_private_key(&server.id).expect("Key fetch");
+    assert_eq!(
+        retrieved_key,
+        Some("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=".into())
+    );
+
+    let exported = WireGuardConfig {
+        client_private_key: retrieved_key.unwrap(),
+        address: server.address.unwrap(),
+        dns: server.dns,
+        peer_public_key: server.public_key,
+        endpoint: server.endpoint,
+        allowed_ips: server.allowed_ips,
+        preshared_key: None,
+    }
+    .to_conf_content();
+
+    assert!(exported.contains("[Interface]"));
+    assert!(exported.contains("PrivateKey = AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="));
+    assert!(exported.contains("Endpoint = 198.51.100.88:51820"));
+}

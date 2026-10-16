@@ -2,17 +2,9 @@ import React, { useState } from 'react';
 import { ServerCard } from '../components/ServerCard';
 import { ServerConfig } from '../types/vpn';
 import { useVpn } from '../hooks/useVpn';
-import {
-  Search,
-  Plus,
-  Star,
-  Globe2,
-  FileText,
-  Upload,
-  X,
-  AlertCircle,
-  CheckCircle2,
-} from 'lucide-react';
+import { Search, Plus, Star, Globe2 } from 'lucide-react';
+import { ImportConfigModal } from '../components/ImportConfigModal';
+import { QrCodeModal } from '../components/QrCodeModal';
 
 export interface LocationsProps {
   servers?: ServerConfig[];
@@ -32,16 +24,12 @@ export const Locations: React.FC<LocationsProps> = (props) => {
   const isConnected = props.isConnected !== undefined ? props.isConnected : vpn.connectionState === 'connected';
   const onSelectServer = props.onSelectServer ?? ((srv: ServerConfig) => vpn.setCurrentServer(srv));
   const onToggleFavorite = props.onToggleFavorite ?? vpn.toggleFavorite;
-  const onImportConfig = props.onImportConfig ?? vpn.importConfiguration;
   const onDeleteServer = props.onDeleteServer ?? vpn.deleteServer;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'favorites' | 'custom'>('all');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [importName, setImportName] = useState('');
-  const [importContent, setImportContent] = useState('');
-  const [importError, setImportError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedServerForQr, setSelectedServerForQr] = useState<ServerConfig | null>(null);
 
   const filteredServers = servers.filter((s) => {
     const matchesSearch =
@@ -56,44 +44,6 @@ export const Locations: React.FC<LocationsProps> = (props) => {
     if (filterType === 'custom') return s.isCustom;
     return true;
   });
-
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (!importName) {
-      setImportName(file.name.replace(/\.conf$/i, ''));
-    }
-
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const text = event.target?.result as string;
-      setImportContent(text);
-    };
-    reader.readAsText(file);
-  };
-
-  const handleSubmitImport = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!importContent.trim()) {
-      setImportError('Please paste or upload a valid WireGuard configuration (.conf)');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setImportError(null);
-
-    try {
-      await onImportConfig(importContent, importName.trim() || undefined);
-      setIsImportModalOpen(false);
-      setImportContent('');
-      setImportName('');
-    } catch (err: any) {
-      setImportError(err?.toString() || 'Failed to import WireGuard configuration');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto overflow-y-auto">
@@ -179,6 +129,10 @@ export const Locations: React.FC<LocationsProps> = (props) => {
                   e.stopPropagation();
                   onToggleFavorite(server.id);
                 }}
+                onShowQr={(e) => {
+                  e.stopPropagation();
+                  setSelectedServerForQr(server);
+                }}
                 onDelete={
                   server.isCustom
                     ? (e) => {
@@ -208,92 +162,18 @@ export const Locations: React.FC<LocationsProps> = (props) => {
         </div>
       )}
 
-      {/* Import Configuration Modal */}
-      {isImportModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-[#111827] border border-slate-800 rounded-3xl p-6 w-full max-w-lg shadow-2xl relative">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400">
-                  <FileText className="w-4 h-4" />
-                </div>
-                <h3 className="text-sm font-bold text-white">Import WireGuard Configuration</h3>
-              </div>
-              <button
-                onClick={() => setIsImportModalOpen(false)}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+      {/* WireGuard .conf Enhanced Import Modal */}
+      <ImportConfigModal
+        isOpen={isImportModalOpen}
+        onClose={() => setIsImportModalOpen(false)}
+      />
 
-            {importError && (
-              <div className="mb-4 p-3 rounded-xl bg-red-500/10 border border-red-500/30 flex items-start gap-2 text-red-300 text-xs">
-                <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
-                <span>{importError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmitImport} className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Server Name (Optional)
-                </label>
-                <input
-                  type="text"
-                  placeholder="e.g. My Private US Gateway"
-                  value={importName}
-                  onChange={(e) => setImportName(e.target.value)}
-                  className="w-full px-3.5 py-2 rounded-xl bg-[#151D30] border border-slate-800 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <label className="text-xs font-semibold text-slate-300">
-                    Configuration Content (.conf)
-                  </label>
-                  <label className="flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 cursor-pointer">
-                    <Upload className="w-3 h-3" />
-                    <span>Upload File</span>
-                    <input
-                      type="file"
-                      accept=".conf"
-                      onChange={handleFileUpload}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-                <textarea
-                  rows={8}
-                  placeholder={`[Interface]\nPrivateKey = ...\nAddress = 10.0.0.2/32\nDNS = 1.1.1.1\n\n[Peer]\nPublicKey = ...\nEndpoint = vpn.example.com:51820\nAllowedIPs = 0.0.0.0/0`}
-                  value={importContent}
-                  onChange={(e) => setImportContent(e.target.value)}
-                  className="w-full p-3 font-mono text-xs rounded-xl bg-[#151D30] border border-slate-800 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-
-              <div className="flex items-center justify-end gap-3 pt-2">
-                <button
-                  type="button"
-                  onClick={() => setIsImportModalOpen(false)}
-                  className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-400 hover:text-white transition"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold shadow-lg shadow-blue-600/20 transition disabled:opacity-50"
-                >
-                  <CheckCircle2 className="w-4 h-4" />
-                  <span>{isSubmitting ? 'Importing...' : 'Validate & Save'}</span>
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* WireGuard Mobile QR Code Modal */}
+      <QrCodeModal
+        isOpen={!!selectedServerForQr}
+        onClose={() => setSelectedServerForQr(null)}
+        server={selectedServerForQr}
+      />
     </div>
   );
 };

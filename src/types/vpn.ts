@@ -23,6 +23,15 @@ export interface ServerConfig {
   provider?: string;
 }
 
+export interface ParsedConfigPreview {
+  endpoint: string;
+  peerPublicKey: string;
+  address: string;
+  allowedIps: string;
+  dns?: string | null;
+  hasPresharedKey: boolean;
+}
+
 export interface IpInfo {
   originalIp: string | null;
   currentIp: string | null;

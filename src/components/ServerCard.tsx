@@ -1,4 +1,4 @@
-import { Star, Trash2, CheckCircle2 } from 'lucide-react';
+import { Star, Trash2, CheckCircle2, QrCode } from 'lucide-react';
 import { ServerConfig } from '../types/vpn';
 
 interface ServerCardProps {
@@ -7,6 +7,7 @@ interface ServerCardProps {
   isConnected: boolean;
   onSelect: () => void;
   onToggleFavorite: (e: React.MouseEvent) => void;
+  onShowQr?: (e: React.MouseEvent) => void;
   onDelete?: (e: React.MouseEvent) => void;
 }
 
@@ -16,6 +17,7 @@ export const ServerCard: React.FC<ServerCardProps> = ({
   isConnected,
   onSelect,
   onToggleFavorite,
+  onShowQr,
   onDelete,
 }) => {
   return (
@@ -59,6 +61,16 @@ export const ServerCard: React.FC<ServerCardProps> = ({
         </div>
 
         <div className="flex items-center gap-1">
+          {onShowQr && (
+            <button
+              onClick={onShowQr}
+              title="Show Mobile QR Code & WireGuard Config"
+              className="p-1.5 rounded-lg text-slate-400 hover:text-blue-400 hover:bg-slate-800/60 transition"
+            >
+              <QrCode className="w-4 h-4" />
+            </button>
+          )}
+
           <button
             onClick={onToggleFavorite}
             title={server.isFavorite ? 'Remove from favorites' : 'Add to favorites'}

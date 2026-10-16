@@ -8,6 +8,7 @@ import {
   AppSettings,
   DiagnosticReport,
   ConnectionSession,
+  ParsedConfigPreview,
 } from '../types/vpn';
 
 export interface VpnStatusResponse {
@@ -70,8 +71,16 @@ export const vpnService = {
     return await invoke<AppSettings>('update_settings', { settings });
   },
 
+  async parseConfiguration(content: string): Promise<ParsedConfigPreview> {
+    return await invoke<ParsedConfigPreview>('parse_vpn_configuration', { content });
+  },
+
   async importConfiguration(content: string, name?: string): Promise<ServerConfig> {
     return await invoke<ServerConfig>('import_vpn_configuration', { content, name });
+  },
+
+  async exportServerConfiguration(serverId: string): Promise<string> {
+    return await invoke<string>('export_server_configuration', { serverId });
   },
 
   async deleteServer(serverId: string): Promise<boolean> {

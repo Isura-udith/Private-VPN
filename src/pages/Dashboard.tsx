@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { ConnectButton } from '../components/ConnectButton';
 import { IpAddressCard } from '../components/IpAddressCard';
 import { StatisticsCard } from '../components/StatisticsCard';
 import { SecurityStatusCard } from '../components/SecurityStatusCard';
+import { QrCodeModal } from '../components/QrCodeModal';
 import {
   ConnectionState,
   ServerConfig,
@@ -11,7 +12,7 @@ import {
   SecurityStatus,
 } from '../types/vpn';
 import { useVpn } from '../hooks/useVpn';
-import { Globe2, AlertTriangle, ArrowRight } from 'lucide-react';
+import { Globe2, AlertTriangle, ArrowRight, QrCode } from 'lucide-react';
 
 export interface DashboardProps {
   connectionState?: ConnectionState;
@@ -40,6 +41,7 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
   const onToggleConnection = props.onToggleConnection ?? vpn.toggleConnection;
   const onRefreshIp = props.onRefreshIp ?? vpn.refreshIp;
   const isVerifyingIp = props.isVerifyingIp ?? vpn.isVerifyingIp;
+  const [isQrModalOpen, setIsQrModalOpen] = useState(false);
 
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto overflow-y-auto">
@@ -81,15 +83,28 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
             </div>
           </div>
 
-          {props.onNavigateToLocations && (
-            <button
-              onClick={props.onNavigateToLocations}
-              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 transition"
-            >
-              <span>Change</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {currentServer && (
+              <button
+                onClick={() => setIsQrModalOpen(true)}
+                title="Generate Mobile WireGuard QR Code"
+                className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/30 text-blue-400 border border-blue-500/30 transition"
+              >
+                <QrCode className="w-3.5 h-3.5" />
+                <span>Mobile QR</span>
+              </button>
+            )}
+
+            {props.onNavigateToLocations && (
+              <button
+                onClick={props.onNavigateToLocations}
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 transition"
+              >
+                <span>Change</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Main Connect Button */}
@@ -123,6 +138,13 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
           onOpenSecurity={props.onNavigateToSecurity || (() => {})}
         />
       </div>
+
+      {/* WireGuard Mobile QR Code Modal */}
+      <QrCodeModal
+        isOpen={isQrModalOpen}
+        onClose={() => setIsQrModalOpen(false)}
+        server={currentServer}
+      />
     </div>
   );
 };

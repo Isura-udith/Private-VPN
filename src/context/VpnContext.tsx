@@ -8,6 +8,7 @@ import {
   AppSettings,
   DiagnosticReport,
   ConnectionSession,
+  ParsedConfigPreview,
 } from '../types/vpn';
 import { vpnService } from '../services/vpn';
 import {
@@ -41,7 +42,9 @@ export interface VpnContextType {
   refreshIp: () => Promise<void>;
   fetchServers: () => Promise<void>;
   toggleFavorite: (serverId: string) => Promise<void>;
+  parseConfiguration: (content: string) => Promise<ParsedConfigPreview>;
   importConfiguration: (content: string, name?: string) => Promise<ServerConfig>;
+  exportServerConfiguration: (serverId: string) => Promise<string>;
   deleteServer: (serverId: string) => Promise<void>;
   toggleKillSwitch: (enable: boolean) => Promise<void>;
   updateSettings: (newSettings: AppSettings) => Promise<void>;
@@ -236,12 +239,22 @@ export const VpnProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     }
   };
 
+  // Parse configuration preview
+  const parseConfiguration = async (content: string) => {
+    return await vpnService.parseConfiguration(content);
+  };
+
   // Import configuration
   const importConfiguration = async (content: string, name?: string) => {
     const newServer = await vpnService.importConfiguration(content, name);
     await fetchServers();
     setCurrentServer(newServer);
     return newServer;
+  };
+
+  // Export configuration
+  const exportServerConfiguration = async (serverId: string) => {
+    return await vpnService.exportServerConfiguration(serverId);
   };
 
   // Delete server
@@ -310,7 +323,9 @@ export const VpnProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
         refreshIp,
         fetchServers,
         toggleFavorite,
+        parseConfiguration,
         importConfiguration,
+        exportServerConfiguration,
         deleteServer,
         toggleKillSwitch,
         updateSettings,
