@@ -1,7 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import { ConnectionState, ServerConfig, IpInfo } from '../types/vpn';
+import { formatBytes, formatDuration, formatSpeed } from '../utils/formatters';
+import { APP_CONFIG, INITIAL_SETTINGS } from '../constants';
 
-describe('Private VPN Frontend State and Models', () => {
+describe('Private VPN Frontend State, Models & Utilities', () => {
   it('correctly models connection states and transitions', () => {
     const states: ConnectionState[] = [
       'disconnected',
@@ -66,15 +68,7 @@ describe('Private VPN Frontend State and Models', () => {
     expect(postVpnIp.currentIp).not.toBe(preVpnIp.originalIp);
   });
 
-  it('handles byte formatting calculation accurately', () => {
-    const formatBytes = (bytes: number): string => {
-      if (bytes === 0) return '0 B';
-      const k = 1024;
-      const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-      const i = Math.floor(Math.log(bytes) / Math.log(k));
-      return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
-    };
-
+  it('handles byte formatting calculation accurately using centralized utility', () => {
     expect(formatBytes(0)).toBe('0 B');
     expect(formatBytes(1024)).toBe('1 KB');
     expect(formatBytes(1048576)).toBe('1 MB');
@@ -82,17 +76,21 @@ describe('Private VPN Frontend State and Models', () => {
     expect(formatBytes(2684354560)).toBe('2.5 GB');
   });
 
-  it('handles session duration formatting accurately', () => {
-    const formatDuration = (seconds: number): string => {
-      const hrs = Math.floor(seconds / 3600);
-      const mins = Math.floor((seconds % 3600) / 60);
-      const secs = seconds % 60;
-      if (hrs > 0) return `${hrs}h ${mins}m ${secs}s`;
-      return `${mins}m ${secs}s`;
-    };
-
+  it('handles session duration formatting accurately using centralized utility', () => {
+    expect(formatDuration(0)).toBe('0m 0s');
     expect(formatDuration(45)).toBe('0m 45s');
     expect(formatDuration(125)).toBe('2m 5s');
     expect(formatDuration(3665)).toBe('1h 1m 5s');
+  });
+
+  it('handles network speed formatting accurately', () => {
+    expect(formatSpeed(1048576)).toBe('1 MB/s');
+    expect(formatSpeed(5242880)).toBe('5 MB/s');
+  });
+
+  it('contains expected app constants and defaults', () => {
+    expect(APP_CONFIG.name).toBe('Private VPN');
+    expect(APP_CONFIG.pollingIntervalMs).toBe(2000);
+    expect(INITIAL_SETTINGS.theme).toBe('dark');
   });
 });

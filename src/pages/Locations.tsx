@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { ServerCard } from '../components/ServerCard';
 import { ServerConfig } from '../types/vpn';
+import { useVpn } from '../hooks/useVpn';
 import {
   Search,
   Plus,
@@ -13,25 +14,27 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 
-interface LocationsProps {
-  servers: ServerConfig[];
-  selectedServer: ServerConfig | null;
-  isConnected: boolean;
-  onSelectServer: (server: ServerConfig) => void;
-  onToggleFavorite: (serverId: string) => void;
-  onImportConfig: (content: string, name?: string) => Promise<void>;
-  onDeleteServer: (serverId: string) => Promise<void>;
+export interface LocationsProps {
+  servers?: ServerConfig[];
+  selectedServer?: ServerConfig | null;
+  isConnected?: boolean;
+  onSelectServer?: (server: ServerConfig) => void;
+  onToggleFavorite?: (serverId: string) => void;
+  onImportConfig?: (content: string, name?: string) => Promise<any>;
+  onDeleteServer?: (serverId: string) => Promise<void>;
 }
 
-export const Locations: React.FC<LocationsProps> = ({
-  servers,
-  selectedServer,
-  isConnected,
-  onSelectServer,
-  onToggleFavorite,
-  onImportConfig,
-  onDeleteServer,
-}) => {
+export const Locations: React.FC<LocationsProps> = (props) => {
+  const vpn = useVpn();
+
+  const servers = props.servers ?? vpn.servers;
+  const selectedServer = props.selectedServer !== undefined ? props.selectedServer : vpn.currentServer;
+  const isConnected = props.isConnected !== undefined ? props.isConnected : vpn.connectionState === 'connected';
+  const onSelectServer = props.onSelectServer ?? ((srv: ServerConfig) => vpn.setCurrentServer(srv));
+  const onToggleFavorite = props.onToggleFavorite ?? vpn.toggleFavorite;
+  const onImportConfig = props.onImportConfig ?? vpn.importConfiguration;
+  const onDeleteServer = props.onDeleteServer ?? vpn.deleteServer;
+
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'favorites' | 'custom'>('all');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -294,3 +297,5 @@ export const Locations: React.FC<LocationsProps> = ({
     </div>
   );
 };
+
+export default Locations;

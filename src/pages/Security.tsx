@@ -8,18 +8,21 @@ import {
   RefreshCw,
 } from 'lucide-react';
 import { SecurityStatus } from '../types/vpn';
+import { useVpn } from '../hooks/useVpn';
 
-interface SecurityProps {
-  securityStatus: SecurityStatus;
-  onToggleKillSwitch: (enable: boolean) => Promise<void>;
-  onRefreshSecurity: () => void;
+export interface SecurityProps {
+  securityStatus?: SecurityStatus;
+  onToggleKillSwitch?: (enable: boolean) => Promise<void>;
+  onRefreshSecurity?: () => void;
 }
 
-export const Security: React.FC<SecurityProps> = ({
-  securityStatus,
-  onToggleKillSwitch,
-  onRefreshSecurity,
-}) => {
+export const Security: React.FC<SecurityProps> = (props) => {
+  const vpn = useVpn();
+
+  const securityStatus = props.securityStatus ?? vpn.securityStatus;
+  const onToggleKillSwitch = props.onToggleKillSwitch ?? vpn.toggleKillSwitch;
+  const onRefreshSecurity = props.onRefreshSecurity ?? vpn.refreshSecurity;
+
   const [isUpdating, setIsUpdating] = useState(false);
 
   const handleToggleKillSwitch = async () => {
@@ -207,3 +210,5 @@ export const Security: React.FC<SecurityProps> = ({
     </div>
   );
 };
+
+export default Security;

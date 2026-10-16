@@ -9,18 +9,21 @@ import {
   Check,
 } from 'lucide-react';
 import { DiagnosticReport } from '../types/vpn';
+import { useVpn } from '../hooks/useVpn';
 
-interface DiagnosticsProps {
-  report: DiagnosticReport | null;
-  isLoading: boolean;
-  onRefreshDiagnostics: () => void;
+export interface DiagnosticsProps {
+  report?: DiagnosticReport | null;
+  isLoading?: boolean;
+  onRefreshDiagnostics?: () => void;
 }
 
-export const Diagnostics: React.FC<DiagnosticsProps> = ({
-  report,
-  isLoading,
-  onRefreshDiagnostics,
-}) => {
+export const Diagnostics: React.FC<DiagnosticsProps> = (props) => {
+  const vpn = useVpn();
+
+  const report = props.report !== undefined ? props.report : vpn.diagnosticReport;
+  const isLoading = props.isLoading !== undefined ? props.isLoading : vpn.isLoadingDiagnostics;
+  const onRefreshDiagnostics = props.onRefreshDiagnostics ?? vpn.refreshDiagnostics;
+
   const [copied, setCopied] = useState(false);
 
   const handleCopy = () => {
@@ -225,3 +228,5 @@ export const Diagnostics: React.FC<DiagnosticsProps> = ({
     </div>
   );
 };
+
+export default Diagnostics;

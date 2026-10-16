@@ -8,29 +8,21 @@ import {
   Server,
 } from 'lucide-react';
 import { VpnStats, ConnectionSession } from '../types/vpn';
+import { useVpn } from '../hooks/useVpn';
+import { formatBytes, formatDuration } from '../utils/formatters';
 
-interface StatisticsProps {
-  stats: VpnStats;
-  sessions: ConnectionSession[];
-  onClearHistory: () => Promise<void>;
+export interface StatisticsProps {
+  stats?: VpnStats;
+  sessions?: ConnectionSession[];
+  onClearHistory?: () => Promise<void>;
 }
 
-export const Statistics: React.FC<StatisticsProps> = ({ stats, sessions, onClearHistory }) => {
-  const formatBytes = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
-  };
+export const Statistics: React.FC<StatisticsProps> = (props) => {
+  const vpn = useVpn();
 
-  const formatDuration = (seconds: number): string => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    if (hrs > 0) return `${hrs}h ${mins}m ${secs}s`;
-    return `${mins}m ${secs}s`;
-  };
+  const stats = props.stats ?? vpn.stats;
+  const sessions = props.sessions ?? vpn.sessions;
+  const onClearHistory = props.onClearHistory ?? vpn.clearSessionHistory;
 
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto overflow-y-auto">
@@ -146,3 +138,5 @@ export const Statistics: React.FC<StatisticsProps> = ({ stats, sessions, onClear
     </div>
   );
 };
+
+export default Statistics;

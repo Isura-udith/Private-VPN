@@ -10,37 +10,37 @@ import {
   VpnStats,
   SecurityStatus,
 } from '../types/vpn';
+import { useVpn } from '../hooks/useVpn';
 import { Globe2, AlertTriangle, ArrowRight } from 'lucide-react';
 
-interface DashboardProps {
-  connectionState: ConnectionState;
-  currentServer: ServerConfig | null;
-  ipInfo: IpInfo;
-  stats: VpnStats;
-  securityStatus: SecurityStatus;
-  errorMessage: string | null;
-  onToggleConnection: () => void;
-  onRefreshIp: () => void;
-  isVerifyingIp: boolean;
-  onNavigateToLocations: () => void;
-  onNavigateToSecurity: () => void;
-  onNavigateToDiagnostics: () => void;
+export interface DashboardProps {
+  connectionState?: ConnectionState;
+  currentServer?: ServerConfig | null;
+  ipInfo?: IpInfo;
+  stats?: VpnStats;
+  securityStatus?: SecurityStatus;
+  errorMessage?: string | null;
+  onToggleConnection?: () => void;
+  onRefreshIp?: () => void;
+  isVerifyingIp?: boolean;
+  onNavigateToLocations?: () => void;
+  onNavigateToSecurity?: () => void;
+  onNavigateToDiagnostics?: () => void;
 }
 
-export const Dashboard: React.FC<DashboardProps> = ({
-  connectionState,
-  currentServer,
-  ipInfo,
-  stats,
-  securityStatus,
-  errorMessage,
-  onToggleConnection,
-  onRefreshIp,
-  isVerifyingIp,
-  onNavigateToLocations,
-  onNavigateToSecurity,
-  onNavigateToDiagnostics,
-}) => {
+export const Dashboard: React.FC<DashboardProps> = (props) => {
+  const vpn = useVpn();
+
+  const connectionState = props.connectionState ?? vpn.connectionState;
+  const currentServer = props.currentServer !== undefined ? props.currentServer : vpn.currentServer;
+  const ipInfo = props.ipInfo ?? vpn.ipInfo;
+  const stats = props.stats ?? vpn.stats;
+  const securityStatus = props.securityStatus ?? vpn.securityStatus;
+  const errorMessage = props.errorMessage !== undefined ? props.errorMessage : vpn.errorMessage;
+  const onToggleConnection = props.onToggleConnection ?? vpn.toggleConnection;
+  const onRefreshIp = props.onRefreshIp ?? vpn.refreshIp;
+  const isVerifyingIp = props.isVerifyingIp ?? vpn.isVerifyingIp;
+
   return (
     <div className="p-6 space-y-6 max-w-5xl mx-auto overflow-y-auto">
       {/* Error Banner */}
@@ -51,12 +51,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <div className="font-bold text-red-200 mb-0.5">Connection Alert</div>
             <div>{errorMessage}</div>
           </div>
-          <button
-            onClick={onNavigateToDiagnostics}
-            className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 transition shrink-0"
-          >
-            Diagnostics
-          </button>
+          {props.onNavigateToDiagnostics && (
+            <button
+              onClick={props.onNavigateToDiagnostics}
+              className="text-xs font-semibold px-2.5 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 transition shrink-0"
+            >
+              Diagnostics
+            </button>
+          )}
         </div>
       )}
 
@@ -79,13 +81,15 @@ export const Dashboard: React.FC<DashboardProps> = ({
             </div>
           </div>
 
-          <button
-            onClick={onNavigateToLocations}
-            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 transition"
-          >
-            <span>Change</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+          {props.onNavigateToLocations && (
+            <button
+              onClick={props.onNavigateToLocations}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700/60 transition"
+            >
+              <span>Change</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
 
         {/* Main Connect Button */}
@@ -116,9 +120,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
         <StatisticsCard stats={stats} />
         <SecurityStatusCard
           securityStatus={securityStatus}
-          onOpenSecurity={onNavigateToSecurity}
+          onOpenSecurity={props.onNavigateToSecurity || (() => {})}
         />
       </div>
     </div>
   );
 };
+
+export default Dashboard;

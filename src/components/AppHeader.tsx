@@ -1,17 +1,21 @@
+import React from 'react';
 import { Shield, ShieldAlert, Activity } from 'lucide-react';
 import { ConnectionState } from '../types/vpn';
+import { useVpn } from '../hooks/useVpn';
 
-interface AppHeaderProps {
-  connectionState: ConnectionState;
-  onRefreshIp: () => void;
-  isVerifying: boolean;
+export interface AppHeaderProps {
+  connectionState?: ConnectionState;
+  onRefreshIp?: () => void;
+  isVerifying?: boolean;
 }
 
-export const AppHeader: React.FC<AppHeaderProps> = ({
-  connectionState,
-  onRefreshIp,
-  isVerifying,
-}) => {
+export const AppHeader: React.FC<AppHeaderProps> = (props) => {
+  const vpn = useVpn();
+
+  const connectionState = props.connectionState ?? vpn.connectionState;
+  const onRefreshIp = props.onRefreshIp ?? vpn.refreshIp;
+  const isVerifying = props.isVerifying ?? vpn.isVerifyingIp;
+
   const getStatusBadge = () => {
     switch (connectionState) {
       case 'connected':
@@ -83,3 +87,5 @@ export const AppHeader: React.FC<AppHeaderProps> = ({
     </header>
   );
 };
+
+export default AppHeader;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Moon,
   Sun,
@@ -9,23 +9,30 @@ import {
   CheckCircle2,
 } from 'lucide-react';
 import { AppSettings, ServerConfig } from '../types/vpn';
+import { useVpn } from '../hooks/useVpn';
 
-interface SettingsProps {
-  settings: AppSettings;
-  servers: ServerConfig[];
-  onUpdateSettings: (newSettings: AppSettings) => Promise<void>;
-  onClearHistory: () => Promise<void>;
+export interface SettingsProps {
+  settings?: AppSettings;
+  servers?: ServerConfig[];
+  onUpdateSettings?: (newSettings: AppSettings) => Promise<void>;
+  onClearHistory?: () => Promise<void>;
 }
 
-export const Settings: React.FC<SettingsProps> = ({
-  settings,
-  servers,
-  onUpdateSettings,
-  onClearHistory,
-}) => {
+export const Settings: React.FC<SettingsProps> = (props) => {
+  const vpn = useVpn();
+
+  const settings = props.settings ?? vpn.settings;
+  const servers = props.servers ?? vpn.servers;
+  const onUpdateSettings = props.onUpdateSettings ?? vpn.updateSettings;
+  const onClearHistory = props.onClearHistory ?? vpn.clearSessionHistory;
+
   const [currentSettings, setCurrentSettings] = useState<AppSettings>(settings);
   const [isSaved, setIsSaved] = useState(false);
   const [confirmClear, setConfirmClear] = useState(false);
+
+  useEffect(() => {
+    setCurrentSettings(settings);
+  }, [settings]);
 
   const handleToggle = (key: keyof AppSettings) => {
     const updated = {
@@ -358,3 +365,5 @@ export const Settings: React.FC<SettingsProps> = ({
     </div>
   );
 };
+
+export default Settings;
