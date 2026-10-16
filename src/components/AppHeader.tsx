@@ -1,7 +1,8 @@
 import React from 'react';
-import { Shield, ShieldAlert, Activity } from 'lucide-react';
+import { ShieldAlert, Activity } from 'lucide-react';
 import { ConnectionState } from '../types/vpn';
 import { useVpn } from '../hooks/useVpn';
+import appIcon from '../assets/icon.png';
 
 export interface AppHeaderProps {
   connectionState?: ConnectionState;
@@ -59,8 +60,8 @@ export const AppHeader: React.FC<AppHeaderProps> = (props) => {
   return (
     <header className="h-16 border-b border-slate-800 bg-[#0f172a]/80 backdrop-blur flex items-center justify-between px-6 select-none">
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-blue-500/20">
-          <Shield className="w-5 h-5 text-white" />
+        <div className="w-9 h-9 rounded-xl bg-slate-900/80 border border-slate-700/60 flex items-center justify-center p-1.5 shadow-lg shadow-blue-500/10">
+          <img src={appIcon} alt="Private VPN" className="w-full h-full object-contain" />
         </div>
         <div>
           <div className="flex items-center gap-2">
