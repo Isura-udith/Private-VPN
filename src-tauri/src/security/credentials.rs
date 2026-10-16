@@ -94,7 +94,7 @@ pub fn unprotect_secret(encrypted_bytes: &[u8]) -> AppResult<String> {
         return Ok(String::new());
     }
 
-    let mut data_in = DATA_BLOB {
+    let data_in = DATA_BLOB {
         cb_data: encrypted_bytes.len() as u32,
         pb_data: encrypted_bytes.as_ptr() as *mut u8,
     };
@@ -105,7 +105,7 @@ pub fn unprotect_secret(encrypted_bytes: &[u8]) -> AppResult<String> {
 
     let success = unsafe {
         CryptUnprotectData(
-            &mut data_in,
+            &data_in,
             ptr::null_mut(), // Description
             ptr::null(),     // Optional entropy
             ptr::null_mut(), // Reserved

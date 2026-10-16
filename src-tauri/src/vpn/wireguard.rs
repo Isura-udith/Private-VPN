@@ -12,6 +12,12 @@ pub struct WireGuardIntegration {
     executable_path: Option<PathBuf>,
 }
 
+impl Default for WireGuardIntegration {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl WireGuardIntegration {
     pub fn new() -> Self {
         let exe = Self::locate_executable();
@@ -38,16 +44,16 @@ impl WireGuardIntegration {
             cmd.arg("wireguard");
             cmd.creation_flags(CREATE_NO_WINDOW);
 
-            if let Ok(output) = cmd.output() {
-                if output.status.success() {
-                    let text = String::from_utf8_lossy(&output.stdout);
-                    if let Some(first_line) = text.lines().next() {
-                        let trimmed = first_line.trim();
-                        if !trimmed.is_empty() {
-                            let p = PathBuf::from(trimmed);
-                            if p.exists() {
-                                return Some(p);
-                            }
+            if let Ok(output) = cmd.output()
+                && output.status.success()
+            {
+                let text = String::from_utf8_lossy(&output.stdout);
+                if let Some(first_line) = text.lines().next() {
+                    let trimmed = first_line.trim();
+                    if !trimmed.is_empty() {
+                        let p = PathBuf::from(trimmed);
+                        if p.exists() {
+                            return Some(p);
                         }
                     }
                 }
@@ -226,10 +232,10 @@ impl WireGuardIntegration {
             PathBuf::from(r"C:\Program Files\WireGuard\wg.exe"),
             PathBuf::from(r"C:\Program Files (x86)\WireGuard\wg.exe"),
         ];
-        if let Some(ref p) = self.executable_path {
-            if let Some(parent) = p.parent() {
-                wg_candidates.push(parent.join("wg.exe"));
-            }
+        if let Some(ref p) = self.executable_path
+            && let Some(parent) = p.parent()
+        {
+            wg_candidates.push(parent.join("wg.exe"));
         }
 
         #[cfg(windows)]
@@ -239,16 +245,16 @@ impl WireGuardIntegration {
                     let mut cmd = Command::new(&wg_path);
                     cmd.args(["show", tunnel_name, "transfer"]);
                     cmd.creation_flags(CREATE_NO_WINDOW);
-                    if let Ok(output) = cmd.output() {
-                        if output.status.success() {
-                            let stdout = String::from_utf8_lossy(&output.stdout);
-                            for line in stdout.lines() {
-                                let parts: Vec<&str> = line.split_whitespace().collect();
-                                if parts.len() >= 3 {
-                                    if let (Ok(rx), Ok(tx)) = (parts[1].parse::<u64>(), parts[2].parse::<u64>()) {
-                                        return Some((rx, tx));
-                                    }
-                                }
+                    if let Ok(output) = cmd.output()
+                        && output.status.success()
+                    {
+                        let stdout = String::from_utf8_lossy(&output.stdout);
+                        for line in stdout.lines() {
+                            let parts: Vec<&str> = line.split_whitespace().collect();
+                            if parts.len() >= 3
+                                && let (Ok(rx), Ok(tx)) = (parts[1].parse::<u64>(), parts[2].parse::<u64>())
+                            {
+                                return Some((rx, tx));
                             }
                         }
                     }
@@ -266,10 +272,10 @@ impl WireGuardIntegration {
                         continue;
                     }
                     let parts: Vec<&str> = line.split_whitespace().collect();
-                    if parts.len() >= 5 {
-                        if let (Ok(bytes_in), Ok(bytes_out)) = (parts[2].parse::<u64>(), parts[3].parse::<u64>()) {
-                            return Some((bytes_in, bytes_out));
-                        }
+                    if parts.len() >= 5
+                        && let (Ok(bytes_in), Ok(bytes_out)) = (parts[2].parse::<u64>(), parts[3].parse::<u64>())
+                    {
+                        return Some((bytes_in, bytes_out));
                     }
                 }
             }

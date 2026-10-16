@@ -93,13 +93,11 @@ export const VpnProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     try {
       const list = await vpnService.listServers();
       setServers(list);
-      if (!currentServer && list.length > 0) {
-        setCurrentServer(list[0]);
-      }
+      setCurrentServer((prev) => prev || (list.length > 0 ? list[0] : null));
     } catch (err) {
       console.error('Failed to list servers:', err);
     }
-  }, [currentServer]);
+  }, []);
 
   // Fetch IP information
   const refreshIp = useCallback(async () => {
@@ -261,12 +259,13 @@ export const VpnProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const deleteServer = async (serverId: string) => {
     try {
       await vpnService.deleteServer(serverId);
-      if (currentServer?.id === serverId) {
-        setCurrentServer(null);
-      }
-      fetchServers();
-    } catch (err) {
+      setCurrentServer((prev) => (prev?.id === serverId ? null : prev));
+      await fetchServers();
+    } catch (err: any) {
       console.error('Failed to delete server:', err);
+      const msg = err?.toString() || 'Failed to delete server';
+      setErrorMessage(msg);
+      throw err;
     }
   };
 

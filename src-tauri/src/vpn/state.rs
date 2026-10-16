@@ -205,11 +205,11 @@ impl VpnManager {
 
         // 10. Optional Kill switch activation if enabled in settings
         let settings = self.db.get_settings().unwrap_or_default();
-        if settings.kill_switch {
-            if let Ok((host, port)) = crate::security::validation::validate_endpoint(&server.endpoint) {
-                let _ = firewall::enable_kill_switch(Some(&host), Some(port));
-                self.add_log("info", "Windows Firewall Kill Switch activated.");
-            }
+        if settings.kill_switch
+            && let Ok((host, port)) = crate::security::validation::validate_endpoint(&server.endpoint)
+        {
+            let _ = firewall::enable_kill_switch(Some(&host), Some(port));
+            self.add_log("info", "Windows Firewall Kill Switch activated.");
         }
 
         if settings.block_ipv6 {
@@ -221,8 +221,10 @@ impl VpnManager {
         tokio::time::sleep(Duration::from_millis(1500)).await;
 
         let post_ip_result = self.ip_checker.fetch_current_ip(None).await;
-        let mut ip_info = IpCheckResult::default();
-        ip_info.original_ip = original_ip.clone();
+        let mut ip_info = IpCheckResult {
+            original_ip: original_ip.clone(),
+            ..Default::default()
+        };
 
         match post_ip_result {
             Ok((new_ip, country, city, isp)) => {
@@ -285,31 +287,32 @@ impl VpnManager {
         }
 
         let server = self.current_server.lock().unwrap().clone();
-        let stats = self.stats.lock().unwrap().get_current_stats();
-        let start_time_utc = self
-            .stats
-            .lock()
-            .unwrap()
-            .get_session_start_utc()
-            .unwrap_or_else(|| Utc::now() - chrono::Duration::seconds(stats.session_duration_secs as i64))
-            .to_rfc3339();
+        let (stats, start_time_utc) = {
+            let tracker = self.stats.lock().unwrap();
+            let s = tracker.get_current_stats();
+            let start = tracker
+                .get_session_start_utc()
+                .unwrap_or_else(|| Utc::now() - chrono::Duration::seconds(s.session_duration_secs as i64))
+                .to_rfc3339();
+            (s, start)
+        };
         let settings = self.db.get_settings().unwrap_or_default();
 
-        if settings.record_session_history {
-            if let Some(s) = server {
-                let session = SessionRecord {
-                    id: Uuid::new_v4().to_string(),
-                    server_id: s.id,
-                    server_name: s.name,
-                    start_time: start_time_utc,
-                    end_time: Some(Utc::now().to_rfc3339()),
-                    bytes_uploaded: stats.total_uploaded,
-                    bytes_downloaded: stats.total_downloaded,
-                    duration_seconds: stats.session_duration_secs,
-                    disconnected_reason: Some("User requested disconnect".into()),
-                };
-                let _ = self.db.add_session(&session);
-            }
+        if settings.record_session_history
+            && let Some(s) = server
+        {
+            let session = SessionRecord {
+                id: Uuid::new_v4().to_string(),
+                server_id: s.id,
+                server_name: s.name,
+                start_time: start_time_utc,
+                end_time: Some(Utc::now().to_rfc3339()),
+                bytes_uploaded: stats.total_uploaded,
+                bytes_downloaded: stats.total_downloaded,
+                duration_seconds: stats.session_duration_secs,
+                disconnected_reason: Some("User requested disconnect".into()),
+            };
+            let _ = self.db.add_session(&session);
         }
 
         // 4. Reset state

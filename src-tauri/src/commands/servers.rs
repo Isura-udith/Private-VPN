@@ -1,6 +1,6 @@
 use crate::storage::database::ServerRecord;
 use crate::vpn::configuration::WireGuardConfig;
-use crate::vpn::state::VpnManager;
+use crate::vpn::state::{ConnectionStatus, VpnManager};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tauri::State;
@@ -56,12 +56,12 @@ pub async fn import_vpn_configuration(
         Some(n) => {
             let trimmed = n.trim();
             if trimmed.is_empty() {
-                format!("Imported Server ({})", &parsed.endpoint)
+                format!("Imported Server ({})", parsed.endpoint)
             } else {
                 trimmed.chars().take(64).filter(|c| !c.is_control()).collect()
             }
         }
-        None => format!("Imported Server ({})", &parsed.endpoint),
+        None => format!("Imported Server ({})", parsed.endpoint),
     };
 
     // Try extracting host / IP for country/city hints
@@ -141,5 +141,14 @@ pub async fn delete_server(
     server_id: String,
     manager: State<'_, Arc<VpnManager>>,
 ) -> Result<bool, String> {
+    let (state, current_server, _, _) = manager.get_status();
+    if let Some(ref s) = current_server
+        && s.id == server_id
+        && (state == ConnectionStatus::Connected
+            || state == ConnectionStatus::Connecting
+            || state == ConnectionStatus::Disconnecting)
+    {
+        return Err("Cannot delete server while it is actively in use or connecting. Please disconnect first.".into());
+    }
     manager.db.delete_server(&server_id).map_err(|e| e.to_string())
 }

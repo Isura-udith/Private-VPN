@@ -35,10 +35,10 @@ pub async fn update_settings(
     // If kill switch was changed while not connected or connected, sync firewall rule
     if settings.kill_switch {
         let server = manager.current_server.lock().unwrap().clone();
-        if let Some(s) = server {
-            if let Ok((host, port)) = crate::security::validation::validate_endpoint(&s.endpoint) {
-                let _ = firewall::enable_kill_switch(Some(&host), Some(port));
-            }
+        if let Some(s) = server
+            && let Ok((host, port)) = crate::security::validation::validate_endpoint(&s.endpoint)
+        {
+            let _ = firewall::enable_kill_switch(Some(&host), Some(port));
         }
     } else {
         let _ = firewall::disable_kill_switch();

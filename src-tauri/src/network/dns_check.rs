@@ -27,10 +27,11 @@ pub fn get_active_dns_servers() -> Vec<String> {
                             servers.push(ip.to_string());
                         }
                     }
-                } else if !trimmed.is_empty() && trimmed.chars().all(|c| c.is_ascii_digit() || c == '.' || c == ':') {
-                    if !servers.contains(&trimmed.to_string()) {
-                        servers.push(trimmed.to_string());
-                    }
+                } else if !trimmed.is_empty()
+                    && trimmed.chars().all(|c| c.is_ascii_digit() || c == '.' || c == ':')
+                    && !servers.contains(&trimmed.to_string())
+                {
+                    servers.push(trimmed.to_string());
                 }
             }
         }

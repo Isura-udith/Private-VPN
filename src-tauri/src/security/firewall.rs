@@ -47,10 +47,10 @@ fn resolve_endpoint_ip(host_or_ip: &str, port: u16) -> Option<String> {
         return Some(host_or_ip.to_string());
     }
     let addr_str = format!("{}:{}", host_or_ip, port);
-    if let Ok(mut addrs) = addr_str.to_socket_addrs() {
-        if let Some(addr) = addrs.next() {
-            return Some(addr.ip().to_string());
-        }
+    if let Ok(mut addrs) = addr_str.to_socket_addrs()
+        && let Some(addr) = addrs.next()
+    {
+        return Some(addr.ip().to_string());
     }
     None
 }
@@ -63,17 +63,17 @@ pub fn is_kill_switch_active() -> bool {
         cmd.args(["advfirewall", "firewall", "show", "rule", &format!("name={}", BLOCK_ALL_RULE)]);
         cmd.creation_flags(CREATE_NO_WINDOW);
 
-        if let Ok(output) = cmd.output() {
-            if output.status.success() {
-                let stdout = String::from_utf8_lossy(&output.stdout);
-                if stdout.contains(BLOCK_ALL_RULE) {
-                    for line in stdout.lines() {
-                        let trimmed = line.trim();
-                        if let Some((k, v)) = trimmed.split_once(':') {
-                            if k.trim().eq_ignore_ascii_case("Enabled") {
-                                return v.trim().eq_ignore_ascii_case("Yes");
-                            }
-                        }
+        if let Ok(output) = cmd.output()
+            && output.status.success()
+        {
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            if stdout.contains(BLOCK_ALL_RULE) {
+                for line in stdout.lines() {
+                    let trimmed = line.trim();
+                    if let Some((k, v)) = trimmed.split_once(':')
+                        && k.trim().eq_ignore_ascii_case("Enabled")
+                    {
+                        return v.trim().eq_ignore_ascii_case("Yes");
                     }
                 }
             }

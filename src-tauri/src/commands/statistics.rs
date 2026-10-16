@@ -7,10 +7,10 @@ use tauri::State;
 #[tauri::command]
 pub async fn get_statistics(manager: State<'_, Arc<VpnManager>>) -> Result<VpnStats, String> {
     let tunnel = manager.active_tunnel_name.lock().unwrap().clone();
-    if let Some(ref name) = tunnel {
-        if let Some((rx, tx)) = manager.wg.query_tunnel_traffic(name) {
-            manager.stats.lock().unwrap().update_traffic(rx, tx);
-        }
+    if let Some(ref name) = tunnel
+        && let Some((rx, tx)) = manager.wg.query_tunnel_traffic(name)
+    {
+        manager.stats.lock().unwrap().update_traffic(rx, tx);
     }
     Ok(manager.stats.lock().unwrap().get_current_stats())
 }

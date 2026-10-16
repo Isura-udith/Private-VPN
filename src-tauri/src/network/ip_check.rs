@@ -55,6 +55,12 @@ pub struct IpChecker {
     client: reqwest::Client,
 }
 
+impl Default for IpChecker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl IpChecker {
     pub fn new() -> Self {
         let client = reqwest::Client::builder()
@@ -81,38 +87,32 @@ impl IpChecker {
             "https://ipwho.is/"
         };
 
-        if let Ok(resp) = self.client.get(primary_url).send().await {
-            if resp.status().is_success() {
-                // Try parsing as ipwho.is structure
-                if let Ok(info) = resp.json::<IpWhoIsResponse>().await {
-                    if let Some(ip) = info.ip {
-                        if ip.parse::<IpAddr>().is_ok() {
-                            let isp = info.connection.and_then(|c| c.isp);
-                            return Ok((ip, info.country, info.city, isp));
-                        }
-                    }
-                }
-            }
+        if let Ok(resp) = self.client.get(primary_url).send().await
+            && resp.status().is_success()
+            && let Ok(info) = resp.json::<IpWhoIsResponse>().await
+            && let Some(ip) = info.ip
+            && ip.parse::<IpAddr>().is_ok()
+        {
+            let isp = info.connection.and_then(|c| c.isp);
+            return Ok((ip, info.country, info.city, isp));
         }
 
         // Fallback 1: api64.ipify.org (supports IPv4 & IPv6)
-        if let Ok(resp) = self.client.get("https://api64.ipify.org?format=json").send().await {
-            if let Ok(data) = resp.json::<IpifyResponse>().await {
-                if let Some(ip) = data.ip {
-                    if ip.parse::<IpAddr>().is_ok() {
-                        return Ok((ip, None, None, None));
-                    }
-                }
-            }
+        if let Ok(resp) = self.client.get("https://api64.ipify.org?format=json").send().await
+            && let Ok(data) = resp.json::<IpifyResponse>().await
+            && let Some(ip) = data.ip
+            && ip.parse::<IpAddr>().is_ok()
+        {
+            return Ok((ip, None, None, None));
         }
 
         // Fallback 2: icanhazip.com (plain text)
-        if let Ok(resp) = self.client.get("https://icanhazip.com").send().await {
-            if let Ok(text) = resp.text().await {
-                let trimmed = text.trim();
-                if trimmed.parse::<IpAddr>().is_ok() {
-                    return Ok((trimmed.to_string(), None, None, None));
-                }
+        if let Ok(resp) = self.client.get("https://icanhazip.com").send().await
+            && let Ok(text) = resp.text().await
+        {
+            let trimmed = text.trim();
+            if trimmed.parse::<IpAddr>().is_ok() {
+                return Ok((trimmed.to_string(), None, None, None));
             }
         }
 

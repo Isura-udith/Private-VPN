@@ -1,33 +1,13 @@
 import React from 'react';
 import { ArrowDown, ArrowUp, Clock, Activity } from 'lucide-react';
 import { VpnStats } from '../types/vpn';
+import { formatBytes, formatDuration, formatSpeed } from '../utils/formatters';
 
 interface StatisticsCardProps {
   stats: VpnStats;
 }
 
 export const StatisticsCard: React.FC<StatisticsCardProps> = ({ stats }) => {
-  const formatBytes = (bytes: number): string => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
-  };
-
-  const formatSpeed = (bytesPerSec: number): string => {
-    return `${formatBytes(bytesPerSec)}/s`;
-  };
-
-  const formatDuration = (seconds: number): string => {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    if (hrs > 0) {
-      return `${hrs}h ${mins}m ${secs}s`;
-    }
-    return `${mins}m ${secs}s`;
-  };
 
   return (
     <div className="bg-[#151D30] border border-slate-800 rounded-2xl p-5 shadow-lg">

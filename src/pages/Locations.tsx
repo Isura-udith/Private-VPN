@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ServerCard } from '../components/ServerCard';
 import { ServerConfig } from '../types/vpn';
 import { useVpn } from '../hooks/useVpn';
-import { Search, Plus, Star, Globe2 } from 'lucide-react';
+import { Search, Plus, Star, Globe2, AlertTriangle } from 'lucide-react';
 import { ImportConfigModal } from '../components/ImportConfigModal';
 import { QrCodeModal } from '../components/QrCodeModal';
 
@@ -22,7 +22,7 @@ export const Locations: React.FC<LocationsProps> = (props) => {
   const servers = props.servers ?? vpn.servers;
   const selectedServer = props.selectedServer !== undefined ? props.selectedServer : vpn.currentServer;
   const isConnected = props.isConnected !== undefined ? props.isConnected : vpn.connectionState === 'connected';
-  const onSelectServer = props.onSelectServer ?? ((srv: ServerConfig) => vpn.setCurrentServer(srv));
+  const onSelectServer = props.onSelectServer;
   const onToggleFavorite = props.onToggleFavorite ?? vpn.toggleFavorite;
   const onDeleteServer = props.onDeleteServer ?? vpn.deleteServer;
 
@@ -30,6 +30,23 @@ export const Locations: React.FC<LocationsProps> = (props) => {
   const [filterType, setFilterType] = useState<'all' | 'favorites' | 'custom'>('all');
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedServerForQr, setSelectedServerForQr] = useState<ServerConfig | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const handleSelectServer = (server: ServerConfig) => {
+    vpn.setCurrentServer(server);
+    if (onSelectServer) {
+      onSelectServer(server);
+    }
+  };
+
+  const handleDeleteServer = async (serverId: string) => {
+    setActionError(null);
+    try {
+      await onDeleteServer(serverId);
+    } catch (err: any) {
+      setActionError(err?.toString() || 'Failed to delete server');
+    }
+  };
 
   const filteredServers = servers.filter((s) => {
     const matchesSearch =
@@ -64,6 +81,21 @@ export const Locations: React.FC<LocationsProps> = (props) => {
           <span>Import WireGuard Config</span>
         </button>
       </div>
+
+      {actionError && (
+        <div className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-between text-xs text-red-300">
+          <div className="flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-red-400 shrink-0" />
+            <span>{actionError}</span>
+          </div>
+          <button
+            onClick={() => setActionError(null)}
+            className="text-xs text-slate-400 hover:text-white px-2 py-0.5 rounded-lg bg-slate-800"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Search and Filters */}
       <div className="flex items-center gap-4">
@@ -124,7 +156,7 @@ export const Locations: React.FC<LocationsProps> = (props) => {
                 server={server}
                 isSelected={isSelected}
                 isConnected={isConnected && isSelected}
-                onSelect={() => onSelectServer(server)}
+                onSelect={() => handleSelectServer(server)}
                 onToggleFavorite={(e) => {
                   e.stopPropagation();
                   onToggleFavorite(server.id);
@@ -137,7 +169,7 @@ export const Locations: React.FC<LocationsProps> = (props) => {
                   server.isCustom
                     ? (e) => {
                         e.stopPropagation();
-                        onDeleteServer(server.id);
+                        handleDeleteServer(server.id);
                       }
                     : undefined
                 }

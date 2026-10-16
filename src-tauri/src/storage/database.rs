@@ -339,10 +339,8 @@ impl Database {
             .map_err(|e| AppError::DatabaseError(format!("Failed to query servers: {}", e)))?;
 
         let mut servers = Vec::new();
-        for row in rows {
-            if let Ok(server) = row {
-                servers.push(server);
-            }
+        for server in rows.flatten() {
+            servers.push(server);
         }
         Ok(servers)
     }
@@ -562,10 +560,8 @@ impl Database {
             .map_err(|e| AppError::DatabaseError(format!("Failed to query sessions: {}", e)))?;
 
         let mut sessions = Vec::new();
-        for row in rows {
-            if let Ok(sess) = row {
-                sessions.push(sess);
-            }
+        for sess in rows.flatten() {
+            sessions.push(sess);
         }
         Ok(sessions)
     }

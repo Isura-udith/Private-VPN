@@ -39,6 +39,12 @@ pub struct StatsTracker {
     tx_speed: u64,
 }
 
+impl Default for StatsTracker {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl StatsTracker {
     pub fn new() -> Self {
         Self {

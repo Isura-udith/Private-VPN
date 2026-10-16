@@ -8,9 +8,12 @@ import { Statistics } from './pages/Statistics';
 import { Diagnostics } from './pages/Diagnostics';
 import { Settings } from './pages/Settings';
 import { VpnProvider } from './context/VpnContext';
+import { useVpn } from './hooks/useVpn';
 
 const AppContent: React.FC = () => {
   const [currentTab, setCurrentTab] = useState<TabType>('dashboard');
+
+  const vpn = useVpn();
 
   return (
     <div className="flex flex-col h-screen bg-[#0B0F19] text-white overflow-hidden">
@@ -30,7 +33,8 @@ const AppContent: React.FC = () => {
 
           {currentTab === 'locations' && (
             <Locations
-              onSelectServer={() => {
+              onSelectServer={(server) => {
+                vpn.setCurrentServer(server);
                 setCurrentTab('dashboard');
               }}
             />
