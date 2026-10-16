@@ -162,6 +162,19 @@ impl Database {
         let _ = conn.execute("ALTER TABLE saved_servers ADD COLUMN address TEXT", []);
         let _ = conn.execute("ALTER TABLE saved_servers ADD COLUMN encrypted_preshared_key BLOB", []);
 
+        // Label demo servers in existing databases so users know they are inactive templates
+        let _ = conn.execute(
+            "UPDATE saved_servers 
+             SET name = CASE 
+                    WHEN name NOT LIKE '[Sample Demo]%' THEN '[Sample Demo] ' || name 
+                    ELSE name 
+                 END,
+                 provider = 'Demo Template (Inactive)'
+             WHERE (id IN ('srv-us-east', 'srv-eu-west', 'srv-ch-zurich') OR endpoint LIKE '198.51.100.%')
+               AND is_custom = 0",
+            [],
+        );
+
         // Initialize default settings if row 1 doesn't exist
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM app_settings WHERE id = 1", [], |r| r.get(0))
@@ -175,7 +188,7 @@ impl Database {
             .map_err(|e| AppError::DatabaseError(format!("Failed to insert default settings: {}", e)))?;
         }
 
-        // Seed default high-performance gateway nodes if table is empty
+        // Seed default sample nodes if table is empty
         let server_count: i64 = conn
             .query_row("SELECT COUNT(*) FROM saved_servers", [], |r| r.get(0))
             .unwrap_or(0);
@@ -184,7 +197,7 @@ impl Database {
             let default_servers = [
                 (
                     "srv-us-east",
-                    "US East - New York",
+                    "[Sample Demo] US East - New York",
                     "United States",
                     "New York",
                     "US",
@@ -194,11 +207,11 @@ impl Database {
                     Some("10.14.0.2/32"),
                     Some("1.1.1.1"),
                     1,
-                    "PrivateVPN Global Network",
+                    "Demo Template (Inactive)",
                 ),
                 (
                     "srv-eu-west",
-                    "EU Central - Frankfurt",
+                    "[Sample Demo] EU Central - Frankfurt",
                     "Germany",
                     "Frankfurt",
                     "DE",
@@ -208,11 +221,11 @@ impl Database {
                     Some("10.14.0.3/32"),
                     Some("1.1.1.1"),
                     0,
-                    "PrivateVPN Global Network",
+                    "Demo Template (Inactive)",
                 ),
                 (
                     "srv-ch-zurich",
-                    "CH Secure Core - Zurich",
+                    "[Sample Demo] CH Secure Core - Zurich",
                     "Switzerland",
                     "Zurich",
                     "CH",
@@ -222,7 +235,7 @@ impl Database {
                     Some("10.14.0.4/32"),
                     Some("9.9.9.9"),
                     1,
-                    "PrivateVPN Privacy Tier",
+                    "Demo Template (Inactive)",
                 ),
             ];
 

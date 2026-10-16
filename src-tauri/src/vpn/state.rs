@@ -145,6 +145,18 @@ impl VpnManager {
             }
         };
 
+        // Guard against connecting to demo/placeholder templates which cannot route real internet
+        if crate::security::validation::is_demo_or_placeholder_endpoint(&server.endpoint, Some(&private_key)) {
+            *self.state.lock().unwrap() = ConnectionStatus::Error;
+            let msg = format!(
+                "\"{}\" is an inactive sample demo profile ({}). Connecting to it will not route internet. Please go to Locations and click 'Import WireGuard Config' to add your real WireGuard profile.",
+                server.name, server.endpoint
+            );
+            *self.last_error.lock().unwrap() = Some(msg.clone());
+            self.add_log("error", &msg);
+            return Err(AppError::InvalidConfiguration(msg));
+        }
+
         // 6. Record pre-connection public IP
         self.add_log("info", "Querying pre-connection public IP address...");
         let pre_ip_result = self.ip_checker.fetch_current_ip(None).await;
@@ -216,15 +228,25 @@ impl VpnManager {
             let _ = firewall::set_ipv6_protection(true);
         }
 
-        // 11. Verify new public IP address
-        self.add_log("info", "Verifying post-tunnel public IP address...");
-        tokio::time::sleep(Duration::from_millis(1500)).await;
-
-        let post_ip_result = self.ip_checker.fetch_current_ip(None).await;
+        // 11. Verify new public IP address with automatic handshake fail-safe
+        self.add_log("info", "Verifying tunnel connectivity and public IP...");
+        let mut verified = false;
+        let mut post_ip_result = Err(AppError::IpVerificationFailed("Pending".into()));
         let mut ip_info = IpCheckResult {
             original_ip: original_ip.clone(),
             ..Default::default()
         };
+
+        // Perform up to 3 verification attempts
+        for attempt in 1..=3 {
+            tokio::time::sleep(Duration::from_millis(1500)).await;
+            post_ip_result = self.ip_checker.fetch_current_ip(None).await;
+            if post_ip_result.is_ok() {
+                verified = true;
+                break;
+            }
+            self.add_log("warn", &format!("Handshake/IP check attempt {}/3 in progress...", attempt));
+        }
 
         match post_ip_result {
             Ok((new_ip, country, city, isp)) => {
@@ -242,6 +264,24 @@ impl VpnManager {
                 self.add_log("info", &format!("IP verification successful. New IP: {}", new_ip));
             }
             Err(e) => {
+                // If IP verification failed, check whether WireGuard received any bytes
+                let traffic = self.wg.query_tunnel_traffic(tunnel_name);
+                let rx_bytes = traffic.map(|(rx, _)| rx).unwrap_or(0);
+
+                if !verified && rx_bytes == 0 {
+                    // FAIL-SAFE ACTIVATED: Server did not respond to handshake. Disconnect tunnel to prevent blackholing user internet.
+                    self.add_log("error", "Remote WireGuard endpoint did not respond to handshake. Triggering auto-disconnect fail-safe to restore internet access.");
+                    let _ = self.wg.disconnect_tunnel(tunnel_name);
+                    let _ = firewall::emergency_reset_firewall();
+                    *self.state.lock().unwrap() = ConnectionStatus::Error;
+                    let msg = format!(
+                        "Connection failed: WireGuard server at {} did not respond to the handshake. Tunnel was disconnected automatically to keep your internet working. Check your server address and credentials.",
+                        server.endpoint
+                    );
+                    *self.last_error.lock().unwrap() = Some(msg.clone());
+                    return Err(AppError::ServiceError(msg));
+                }
+
                 ip_info.status = "unverified".into();
                 ip_info.error_message = Some(e.to_string());
                 self.add_log("warn", &format!("IP verification inconclusive: {}", e));

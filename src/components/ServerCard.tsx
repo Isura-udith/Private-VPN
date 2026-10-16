@@ -20,6 +20,8 @@ export const ServerCard: React.FC<ServerCardProps> = ({
   onShowQr,
   onDelete,
 }) => {
+  const isDemo = !server.isCustom || server.endpoint.startsWith('198.51.100.') || server.name.includes('[Sample Demo]');
+
   return (
     <div
       onClick={onSelect}
@@ -51,6 +53,11 @@ export const ServerCard: React.FC<ServerCardProps> = ({
                 <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                   <CheckCircle2 className="w-3 h-3" />
                   ACTIVE
+                </span>
+              )}
+              {isDemo && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                  SAMPLE
                 </span>
               )}
             </div>

@@ -82,6 +82,16 @@ export const Locations: React.FC<LocationsProps> = (props) => {
         </button>
       </div>
 
+      {/* Guidance Banner */}
+      <div className="p-3.5 rounded-2xl bg-blue-600/10 border border-blue-500/20 flex items-center gap-3 text-xs text-blue-200">
+        <Globe2 className="w-4 h-4 text-blue-400 shrink-0" />
+        <div>
+          <span className="font-semibold text-white">Notice: </span>
+          Default gateways are inactive sample templates. To route live encrypted internet, click{' '}
+          <strong className="text-blue-300">Import WireGuard Config</strong> to add your active server profile.
+        </div>
+      </div>
+
       {actionError && (
         <div className="p-3.5 rounded-2xl bg-red-500/10 border border-red-500/30 flex items-center justify-between text-xs text-red-300">
           <div className="flex items-center gap-2">

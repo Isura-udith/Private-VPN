@@ -107,6 +107,24 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
           </div>
         </div>
 
+        {/* Notice if current server is a Demo/Sample server */}
+        {currentServer && (!currentServer.isCustom || currentServer.endpoint.startsWith('198.51.100.') || currentServer.name.includes('[Sample Demo]')) && (
+          <div className="w-full max-w-md mb-2 p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between text-xs text-amber-300">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>Sample template profile. Import a real .conf to route internet.</span>
+            </div>
+            {props.onNavigateToLocations && (
+              <button
+                onClick={props.onNavigateToLocations}
+                className="text-[11px] font-bold underline text-amber-200 hover:text-white shrink-0 ml-2"
+              >
+                Import
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Main Connect Button */}
         <ConnectButton
           state={connectionState}

@@ -145,6 +145,30 @@ pub fn redact_sensitive_text(text: &str) -> String {
     step2.to_string()
 }
 
+/// Identifies if an endpoint or key is a documentation/demo placeholder (RFC 5737 test IPs or dummy keys)
+pub fn is_demo_or_placeholder_endpoint(endpoint: &str, private_key: Option<&str>) -> bool {
+    let trimmed_endpoint = endpoint.trim();
+    if trimmed_endpoint.starts_with("198.51.100.")
+        || trimmed_endpoint.starts_with("192.0.2.")
+        || trimmed_endpoint.starts_with("203.0.113.")
+        || trimmed_endpoint.contains("example.com")
+    {
+        return true;
+    }
+
+    if let Some(key) = private_key {
+        let trimmed_key = key.trim();
+        if trimmed_key == "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="
+            || trimmed_key == "0000000000000000000000000000000000000000000="
+        {
+            return true;
+        }
+    }
+
+    false
+}
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -192,5 +216,21 @@ mod tests {
         let redacted = redact_sensitive_text(conf);
         assert!(!redacted.contains("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa="));
         assert!(redacted.contains("[REDACTED_PRIVATE_KEY]"));
+    }
+
+    #[test]
+    fn test_is_demo_or_placeholder_endpoint() {
+        assert!(is_demo_or_placeholder_endpoint("198.51.100.12:51820", None));
+        assert!(is_demo_or_placeholder_endpoint("192.0.2.1:51820", None));
+        assert!(is_demo_or_placeholder_endpoint("203.0.113.5:51820", None));
+        assert!(is_demo_or_placeholder_endpoint("vpn.example.com:51820", None));
+        assert!(is_demo_or_placeholder_endpoint(
+            "1.2.3.4:51820",
+            Some("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=")
+        ));
+        assert!(!is_demo_or_placeholder_endpoint(
+            "149.154.167.1:51820",
+            Some("bK7y5x5M2n0G9VfR7Q6W8E1T3Y5U7I9O1P3A5S7D9F1=")
+        ));
     }
 }
