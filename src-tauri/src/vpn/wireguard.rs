@@ -134,14 +134,11 @@ impl WireGuardIntegration {
             })
         };
 
-        // WireGuard copies the configuration into its internal DPAPI store during /installtunnelservice.
-        // Wipe and delete the plaintext configuration immediately to prevent key leakage.
-        wipe_and_remove_file(&conf_file_path);
-
         #[cfg(windows)]
         {
             let output = install_res?;
             if !output.status.success() {
+                wipe_and_remove_file(&conf_file_path);
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 return Err(AppError::ServiceError(format!(
                     "Failed to start WireGuard tunnel service: {}",
