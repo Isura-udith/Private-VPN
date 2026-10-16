@@ -156,4 +156,18 @@ fn test_invalid_configurations_rejected() {
 
     // Bad AllowedIPs (not CIDR)
     assert!(validate_allowed_ips("192.168.1.1").is_err());
+
+    // CRLF injection attempts
+    assert!(validate_endpoint("vpn.com\r\nInjected:51820").is_err());
+    assert!(validate_allowed_ips("0.0.0.0/0\nPostUp = cmd").is_err());
+}
+
+#[test]
+fn test_default_servers_seeded_on_init() {
+    let db = Database::new_in_memory().expect("in-memory db");
+    let servers = db.list_servers().expect("servers should be listed");
+    assert!(servers.len() >= 3);
+    assert!(servers.iter().any(|s| s.country == "United States"));
+    assert!(servers.iter().any(|s| s.country == "Germany"));
+    assert!(servers.iter().any(|s| s.country == "Switzerland"));
 }

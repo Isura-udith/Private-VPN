@@ -195,6 +195,7 @@ impl VpnManager {
 
         if !tunnel_ready {
             let _ = self.wg.disconnect_tunnel(tunnel_name);
+            let _ = firewall::emergency_reset_firewall();
             *self.state.lock().unwrap() = ConnectionStatus::Error;
             let msg = "WireGuard tunnel service failed to enter running state within timeout".to_string();
             *self.last_error.lock().unwrap() = Some(msg.clone());
@@ -283,9 +284,15 @@ impl VpnManager {
             self.add_log("info", "WireGuard tunnel service stopped and removed.");
         }
 
-        // 3. Record session in database if enabled
         let server = self.current_server.lock().unwrap().clone();
         let stats = self.stats.lock().unwrap().get_current_stats();
+        let start_time_utc = self
+            .stats
+            .lock()
+            .unwrap()
+            .get_session_start_utc()
+            .unwrap_or_else(|| Utc::now() - chrono::Duration::seconds(stats.session_duration_secs as i64))
+            .to_rfc3339();
         let settings = self.db.get_settings().unwrap_or_default();
 
         if settings.record_session_history {
@@ -294,7 +301,7 @@ impl VpnManager {
                     id: Uuid::new_v4().to_string(),
                     server_id: s.id,
                     server_name: s.name,
-                    start_time: Utc::now().to_rfc3339(),
+                    start_time: start_time_utc,
                     end_time: Some(Utc::now().to_rfc3339()),
                     bytes_uploaded: stats.total_uploaded,
                     bytes_downloaded: stats.total_downloaded,

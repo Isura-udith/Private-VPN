@@ -65,11 +65,17 @@ pub fn protect_secret(plaintext: &str) -> AppResult<Vec<u8>> {
     }
 
     let encrypted = unsafe {
-        std::slice::from_raw_parts(data_out.pb_data, data_out.cb_data as usize).to_vec()
+        if data_out.pb_data.is_null() || data_out.cb_data == 0 {
+            Vec::new()
+        } else {
+            std::slice::from_raw_parts(data_out.pb_data, data_out.cb_data as usize).to_vec()
+        }
     };
 
-    unsafe {
-        LocalFree(data_out.pb_data as _);
+    if !data_out.pb_data.is_null() {
+        unsafe {
+            LocalFree(data_out.pb_data as _);
+        }
     }
 
     Ok(encrypted)
@@ -83,6 +89,10 @@ pub fn protect_secret(plaintext: &str) -> AppResult<Vec<u8>> {
 #[cfg(windows)]
 pub fn unprotect_secret(encrypted_bytes: &[u8]) -> AppResult<String> {
     use std::ptr;
+
+    if encrypted_bytes.is_empty() {
+        return Ok(String::new());
+    }
 
     let mut data_in = DATA_BLOB {
         cb_data: encrypted_bytes.len() as u32,
@@ -110,13 +120,19 @@ pub fn unprotect_secret(encrypted_bytes: &[u8]) -> AppResult<String> {
     }
 
     let decrypted = unsafe {
-        let slice = std::slice::from_raw_parts(data_out.pb_data, data_out.cb_data as usize);
-        String::from_utf8(slice.to_vec())
-            .map_err(|e| AppError::CredentialError(format!("Decrypted data is not valid UTF-8: {}", e)))
+        if data_out.pb_data.is_null() || data_out.cb_data == 0 {
+            Ok(String::new())
+        } else {
+            let slice = std::slice::from_raw_parts(data_out.pb_data, data_out.cb_data as usize);
+            String::from_utf8(slice.to_vec())
+                .map_err(|e| AppError::CredentialError(format!("Decrypted data is not valid UTF-8: {}", e)))
+        }
     };
 
-    unsafe {
-        LocalFree(data_out.pb_data as _);
+    if !data_out.pb_data.is_null() {
+        unsafe {
+            LocalFree(data_out.pb_data as _);
+        }
     }
 
     decrypted
@@ -124,6 +140,9 @@ pub fn unprotect_secret(encrypted_bytes: &[u8]) -> AppResult<String> {
 
 #[cfg(not(windows))]
 pub fn unprotect_secret(encrypted_bytes: &[u8]) -> AppResult<String> {
+    if encrypted_bytes.is_empty() {
+        return Ok(String::new());
+    }
     String::from_utf8(encrypted_bytes.to_vec())
         .map_err(|e| AppError::CredentialError(format!("Decrypted data is not valid UTF-8: {}", e)))
 }

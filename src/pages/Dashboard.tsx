@@ -65,7 +65,7 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
       {/* Main Connection Section */}
       <div className="bg-[#151D30] border border-slate-800 rounded-3xl p-6 shadow-xl flex flex-col items-center justify-center relative overflow-hidden">
         {/* Background glow effect */}
-        <div className="absolute inset-0 bg-gradient-to-b from-blue-600/5 via-transparent to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-linear-to-b from-blue-600/5 via-transparent to-transparent pointer-events-none" />
 
         {/* Server Selector Bar */}
         <div className="w-full max-w-md flex items-center justify-between p-3 rounded-2xl bg-slate-900/90 border border-slate-800 mb-2">
@@ -75,7 +75,7 @@ export const Dashboard: React.FC<DashboardProps> = (props) => {
             </div>
             <div>
               <div className="text-[11px] text-slate-500 font-medium">Selected Gateway</div>
-              <div className="text-xs font-bold text-white truncate max-w-[200px]">
+              <div className="text-xs font-bold text-white truncate max-w-50">
                 {currentServer ? currentServer.name : 'No server configured'}
               </div>
             </div>

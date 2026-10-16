@@ -89,6 +89,7 @@ impl WireGuardIntegration {
 
     /// Connects by installing the WireGuard tunnel service
     pub fn connect_tunnel(&self, tunnel_name: &str, config: &WireGuardConfig) -> AppResult<()> {
+        let safe_tunnel_name = crate::security::validation::validate_tunnel_name(tunnel_name)?;
         let exe = self.executable_path.as_ref().ok_or(AppError::WireguardNotInstalled)?;
 
         if !Self::is_elevated() {
@@ -98,7 +99,7 @@ impl WireGuardIntegration {
         }
 
         // 1. Clean up any lingering previous tunnel service with the same name first
-        let _ = self.disconnect_tunnel(tunnel_name);
+        let _ = self.disconnect_tunnel(&safe_tunnel_name);
         std::thread::sleep(std::time::Duration::from_millis(300));
 
         // 2. Ensure tunnels directory exists in LocalAppData
@@ -107,7 +108,7 @@ impl WireGuardIntegration {
         tunnel_dir.push("tunnels");
         let _ = std::fs::create_dir_all(&tunnel_dir);
 
-        let conf_file_path = tunnel_dir.join(format!("{}.conf", tunnel_name));
+        let conf_file_path = tunnel_dir.join(format!("{}.conf", safe_tunnel_name));
         let conf_content = config.to_conf_content();
 
         // Write configuration file
@@ -117,15 +118,23 @@ impl WireGuardIntegration {
 
         // 3. Run WireGuard install tunnel service
         #[cfg(windows)]
-        {
+        let install_res = {
             let mut cmd = Command::new(exe);
             cmd.args(["/installtunnelservice", &conf_file_path.to_string_lossy()]);
             cmd.creation_flags(CREATE_NO_WINDOW);
 
-            let output = cmd.output().map_err(|e| {
+            cmd.output().map_err(|e| {
                 AppError::ServiceError(format!("Failed to execute wireguard.exe: {}", e))
-            })?;
+            })
+        };
 
+        // WireGuard copies the configuration into its internal DPAPI store during /installtunnelservice.
+        // Wipe and delete the plaintext configuration immediately to prevent key leakage.
+        wipe_and_remove_file(&conf_file_path);
+
+        #[cfg(windows)]
+        {
+            let output = install_res?;
             if !output.status.success() {
                 let stderr = String::from_utf8_lossy(&output.stderr);
                 return Err(AppError::ServiceError(format!(
@@ -145,26 +154,28 @@ impl WireGuardIntegration {
 
     /// Disconnects by uninstalling the WireGuard tunnel service
     pub fn disconnect_tunnel(&self, tunnel_name: &str) -> AppResult<()> {
+        let safe_tunnel_name = match crate::security::validation::validate_tunnel_name(tunnel_name) {
+            Ok(name) => name,
+            Err(_) => "PrivateVPNTunnel".to_string(),
+        };
         let exe = self.executable_path.as_ref().ok_or(AppError::WireguardNotInstalled)?;
 
         #[cfg(windows)]
         {
             let mut cmd = Command::new(exe);
-            cmd.args(["/uninstalltunnelservice", tunnel_name]);
+            cmd.args(["/uninstalltunnelservice", &safe_tunnel_name]);
             cmd.creation_flags(CREATE_NO_WINDOW);
 
             let output = cmd.output().map_err(|e| {
                 AppError::ServiceError(format!("Failed to execute wireguard.exe uninstall: {}", e))
             })?;
 
-            // Also remove temporary conf file if present
+            // Also ensure any lingering conf file is securely wiped
             let mut tunnel_dir = dirs_fallback_local_data();
             tunnel_dir.push("PrivateVPN");
             tunnel_dir.push("tunnels");
-            let conf_file_path = tunnel_dir.join(format!("{}.conf", tunnel_name));
-            if conf_file_path.exists() {
-                let _ = std::fs::remove_file(&conf_file_path);
-            }
+            let conf_file_path = tunnel_dir.join(format!("{}.conf", safe_tunnel_name));
+            wipe_and_remove_file(&conf_file_path);
 
             if !output.status.success() {
                 // If it wasn't running, it's not fatal
@@ -180,7 +191,7 @@ impl WireGuardIntegration {
 
         #[cfg(not(windows))]
         {
-            let _ = (exe, tunnel_name);
+            let _ = (exe, safe_tunnel_name);
         }
 
         Ok(())
@@ -251,6 +262,9 @@ impl WireGuardIntegration {
             if let Ok(output) = cmd.output() {
                 let stdout = String::from_utf8_lossy(&output.stdout);
                 for line in stdout.lines() {
+                    if !line.contains(tunnel_name) {
+                        continue;
+                    }
                     let parts: Vec<&str> = line.split_whitespace().collect();
                     if parts.len() >= 5 {
                         if let (Ok(bytes_in), Ok(bytes_out)) = (parts[2].parse::<u64>(), parts[3].parse::<u64>()) {
@@ -267,6 +281,17 @@ impl WireGuardIntegration {
         }
 
         None
+    }
+}
+
+fn wipe_and_remove_file(path: &std::path::Path) {
+    if path.exists() {
+        if let Ok(metadata) = std::fs::metadata(path) {
+            let len = metadata.len() as usize;
+            let zeroes = vec![0u8; len];
+            let _ = std::fs::write(path, zeroes);
+        }
+        let _ = std::fs::remove_file(path);
     }
 }
 

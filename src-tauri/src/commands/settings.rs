@@ -27,6 +27,9 @@ pub async fn update_settings(
     settings: AppSettingsModel,
     manager: State<'_, Arc<VpnManager>>,
 ) -> Result<AppSettingsModel, String> {
+    crate::security::validation::validate_https_url(&settings.ip_check_endpoint)
+        .map_err(|e| e.to_string())?;
+
     manager.db.update_settings(&settings).map_err(|e| e.to_string())?;
 
     // If kill switch was changed while not connected or connected, sync firewall rule

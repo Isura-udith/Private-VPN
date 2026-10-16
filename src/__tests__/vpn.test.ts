@@ -92,5 +92,13 @@ describe('Private VPN Frontend State, Models & Utilities', () => {
     expect(APP_CONFIG.name).toBe('Private VPN');
     expect(APP_CONFIG.pollingIntervalMs).toBe(2000);
     expect(INITIAL_SETTINGS.theme).toBe('dark');
+    expect(INITIAL_SETTINGS.killSwitch).toBe(false);
+    expect(INITIAL_SETTINGS.blockIpv6).toBe(true);
+  });
+
+  it('handles negative or invalid formatting inputs gracefully', () => {
+    expect(formatBytes(-100)).toBe('0 B');
+    expect(formatDuration(-50)).toBe('0m 0s');
+    expect(formatSpeed(0)).toBe('0 B/s');
   });
 });

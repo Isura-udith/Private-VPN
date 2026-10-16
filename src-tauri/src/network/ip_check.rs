@@ -69,7 +69,17 @@ impl IpChecker {
     /// Fetches public IP and basic geolocation information
     pub async fn fetch_current_ip(&self, custom_endpoint: Option<&str>) -> AppResult<(String, Option<String>, Option<String>, Option<String>)> {
         // Try custom or primary endpoint: ipwho.is (gives IP, country, city, ISP)
-        let primary_url = custom_endpoint.unwrap_or("https://ipwho.is/");
+        let primary_url = if let Some(url) = custom_endpoint {
+            let trimmed = url.trim();
+            if !trimmed.is_empty() {
+                crate::security::validation::validate_https_url(trimmed)?;
+                trimmed
+            } else {
+                "https://ipwho.is/"
+            }
+        } else {
+            "https://ipwho.is/"
+        };
 
         if let Ok(resp) = self.client.get(primary_url).send().await {
             if resp.status().is_success() {

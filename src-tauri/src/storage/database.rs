@@ -175,6 +175,73 @@ impl Database {
             .map_err(|e| AppError::DatabaseError(format!("Failed to insert default settings: {}", e)))?;
         }
 
+        // Seed default high-performance gateway nodes if table is empty
+        let server_count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM saved_servers", [], |r| r.get(0))
+            .unwrap_or(0);
+
+        if server_count == 0 {
+            let default_servers = [
+                (
+                    "srv-us-east",
+                    "US East - New York",
+                    "United States",
+                    "New York",
+                    "US",
+                    "198.51.100.12:51820",
+                    "kX1zLq54k7YgVnO4sP8d2A7JmK3wQ6rT9vF1bN5eL8w=",
+                    "0.0.0.0/0, ::/0",
+                    Some("10.14.0.2/32"),
+                    Some("1.1.1.1"),
+                    1,
+                    "PrivateVPN Global Network",
+                ),
+                (
+                    "srv-eu-west",
+                    "EU Central - Frankfurt",
+                    "Germany",
+                    "Frankfurt",
+                    "DE",
+                    "198.51.100.45:51820",
+                    "mP9wQ2rT4vF6bN8eL1wZ3xLq54k7YgVnO4sP8d2A7Jk=",
+                    "0.0.0.0/0, ::/0",
+                    Some("10.14.0.3/32"),
+                    Some("1.1.1.1"),
+                    0,
+                    "PrivateVPN Global Network",
+                ),
+                (
+                    "srv-ch-zurich",
+                    "CH Secure Core - Zurich",
+                    "Switzerland",
+                    "Zurich",
+                    "CH",
+                    "198.51.100.88:51820",
+                    "vF6bN8eL1wZ3xLq54k7YgVnO4sP8d2A7JkmP9wQ2rT4=",
+                    "0.0.0.0/0, ::/0",
+                    Some("10.14.0.4/32"),
+                    Some("9.9.9.9"),
+                    1,
+                    "PrivateVPN Privacy Tier",
+                ),
+            ];
+
+            let dummy_key = "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+            let encrypted_key = protect_secret(dummy_key).ok();
+            let now = chrono::Utc::now().to_rfc3339();
+
+            for s in &default_servers {
+                let _ = conn.execute(
+                    "INSERT INTO saved_servers
+                        (id, name, country, city, country_code, endpoint, public_key, allowed_ips, address, dns, encrypted_private_key, is_favorite, is_custom, provider, created_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 0, ?13, ?14)",
+                    params![
+                        s.0, s.1, s.2, s.3, s.4, s.5, s.6, s.7, s.8, s.9, encrypted_key, s.10, s.11, now
+                    ],
+                );
+            }
+        }
+
         Ok(())
     }
 

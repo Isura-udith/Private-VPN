@@ -64,8 +64,19 @@ pub fn is_kill_switch_active() -> bool {
         cmd.creation_flags(CREATE_NO_WINDOW);
 
         if let Ok(output) = cmd.output() {
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            return stdout.contains(BLOCK_ALL_RULE) && stdout.contains("Enabled:  Yes");
+            if output.status.success() {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                if stdout.contains(BLOCK_ALL_RULE) {
+                    for line in stdout.lines() {
+                        let trimmed = line.trim();
+                        if let Some((k, v)) = trimmed.split_once(':') {
+                            if k.trim().eq_ignore_ascii_case("Enabled") {
+                                return v.trim().eq_ignore_ascii_case("Yes");
+                            }
+                        }
+                    }
+                }
+            }
         }
         false
     }

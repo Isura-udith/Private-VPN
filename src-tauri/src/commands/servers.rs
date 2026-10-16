@@ -27,7 +27,17 @@ pub async fn import_vpn_configuration(
     let parsed = WireGuardConfig::parse(&content).map_err(|e| e.to_string())?;
 
     let server_id = format!("srv-{}", Uuid::new_v4().to_string().chars().take(8).collect::<String>());
-    let display_name = name.unwrap_or_else(|| format!("Imported Server ({})", &parsed.endpoint));
+    let display_name = match name {
+        Some(n) => {
+            let trimmed = n.trim();
+            if trimmed.is_empty() {
+                format!("Imported Server ({})", &parsed.endpoint)
+            } else {
+                trimmed.chars().take(64).filter(|c| !c.is_control()).collect()
+            }
+        }
+        None => format!("Imported Server ({})", &parsed.endpoint),
+    };
 
     // Try extracting host / IP for country/city hints
     let host_part = parsed.endpoint.split(':').next().unwrap_or("WireGuard");

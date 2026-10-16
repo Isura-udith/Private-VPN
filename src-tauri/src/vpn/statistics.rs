@@ -29,6 +29,7 @@ impl Default for VpnStats {
 
 pub struct StatsTracker {
     start_time: Option<Instant>,
+    session_start_utc: Option<chrono::DateTime<chrono::Utc>>,
     last_sample_time: Instant,
     last_rx_bytes: u64,
     last_tx_bytes: u64,
@@ -42,6 +43,7 @@ impl StatsTracker {
     pub fn new() -> Self {
         Self {
             start_time: None,
+            session_start_utc: None,
             last_sample_time: Instant::now(),
             last_rx_bytes: 0,
             last_tx_bytes: 0,
@@ -54,6 +56,7 @@ impl StatsTracker {
 
     pub fn start_session(&mut self) {
         self.start_time = Some(Instant::now());
+        self.session_start_utc = Some(chrono::Utc::now());
         self.last_sample_time = Instant::now();
         self.last_rx_bytes = 0;
         self.last_tx_bytes = 0;
@@ -65,8 +68,13 @@ impl StatsTracker {
 
     pub fn stop_session(&mut self) {
         self.start_time = None;
+        self.session_start_utc = None;
         self.rx_speed = 0;
         self.tx_speed = 0;
+    }
+
+    pub fn get_session_start_utc(&self) -> Option<chrono::DateTime<chrono::Utc>> {
+        self.session_start_utc
     }
 
     pub fn update_traffic(&mut self, current_rx: u64, current_tx: u64) {

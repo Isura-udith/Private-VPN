@@ -1,5 +1,7 @@
 use crate::errors::{AppError, AppResult};
-use crate::security::validation::{validate_allowed_ips, validate_endpoint, validate_wireguard_key};
+use crate::security::validation::{
+    validate_allowed_ips, validate_endpoint, validate_no_crlf, validate_wireguard_key,
+};
 use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -65,8 +67,12 @@ impl WireGuardConfig {
             .get("address")
             .cloned()
             .unwrap_or_else(|| "10.0.0.2/32".into());
+        validate_no_crlf(&address, "Address")?;
 
         let dns = interface_map.get("dns").cloned();
+        if let Some(ref d) = dns {
+            validate_no_crlf(d, "DNS")?;
+        }
 
         let peer_public_key = peer_map
             .get("publickey")

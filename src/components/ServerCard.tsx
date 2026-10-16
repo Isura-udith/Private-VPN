@@ -84,7 +84,7 @@ export const ServerCard: React.FC<ServerCardProps> = ({
       </div>
 
       <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-slate-800/60 text-[11px] text-slate-500 font-mono">
-        <span className="truncate max-w-[160px]">{server.endpoint}</span>
+        <span className="truncate max-w-40">{server.endpoint}</span>
         <span className="text-slate-400">{server.provider || 'WireGuard'}</span>
       </div>
     </div>
